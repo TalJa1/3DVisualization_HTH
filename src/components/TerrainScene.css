@@ -1,0 +1,12 @@
+.terrain-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.terrain-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}

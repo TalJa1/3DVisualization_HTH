@@ -1,0 +1,83 @@
+.export__header {
+  margin-bottom: 1.75rem;
+}
+.export__header h1 {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #f3f4f6;
+  margin: 0 0 0.4rem;
+}
+.export__header p { color: #9ca3af; margin: 0; }
+
+.export__preview-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(170,59,255,0.18);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+}
+
+.export__preview-canvas {
+  aspect-ratio: 16 / 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  gap: 0.5rem;
+}
+
+.export__preview-icon { font-size: 3rem; }
+
+.export__downloads h2,
+.export__instructions h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f3f4f6;
+  margin: 0 0 1rem;
+}
+
+.export__download-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 2.5rem;
+}
+
+.export__download-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(170,59,255,0.15);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.export__format-icon { font-size: 1.75rem; }
+
+.export__format-info {
+  flex: 1;
+}
+.export__format-info strong {
+  font-size: 1rem;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+.export__format-info p {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin: 0.2rem 0 0;
+}
+
+.export__dl-btn {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+.export__instructions ol {
+  color: #9ca3af;
+  padding-left: 1.25rem;
+  line-height: 1.9;
+}
