@@ -62,25 +62,22 @@ export default function Home() {
       <section className="home__samples" id="samples">
         <h2 className="home__section-title">Sample DEM Files</h2>
         <ul className="home__sample-list">
-          <li>
-            <a
-              href="/sample/sample.png"
-              download="sample.png"
-              className="home__sample-link"
-            >
-              <span className="home__sample-icon">⬇</span> Sample Heightmap
-            </a>
-          </li>
-          <li>
-            <span className="home__sample-link home__sample-link--disabled">
-              <span className="home__sample-icon">⬇</span> Coming Soon
-            </span>
-          </li>
-          <li>
-            <span className="home__sample-link home__sample-link--disabled">
-              <span className="home__sample-icon">⬇</span> Coming Soon
-            </span>
-          </li>
+          {[
+            { name: 'Heightmapper',  file: 'heightmapper.png' },
+            { name: 'Núi Phusi',     file: 'nui_phusi.png'   },
+            { name: 'Mount Everest', file: 'everest.png'      },
+            { name: 'Bắc Bộ',       file: 'bacbo.png'        },
+          ].map(s => (
+            <li key={s.file}>
+              <a
+                href={`/sample/${s.file}`}
+                download={s.file}
+                className="home__sample-link"
+              >
+                <span className="home__sample-icon">⬇</span> {s.name}
+              </a>
+            </li>
+          ))}
         </ul>
       </section>
     </div>
