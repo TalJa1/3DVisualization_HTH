@@ -168,6 +168,11 @@
   border-color: #aa3bff;
   color: #e9d5ff;
 }
+.home__sample-link--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 .home__sample-icon {
   font-size: 0.85rem;
