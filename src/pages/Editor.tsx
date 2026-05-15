@@ -105,7 +105,7 @@ function exportOBJ(mesh: THREE.Mesh): void {
 const DETAIL_LABELS: Record<number, string> = {
   1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Ultra',
 }
-const ACCEPTED = ['png', 'jpg', 'jpeg', 'webp']
+const ACCEPTED = ['png', 'jpg', 'jpeg', 'webp', 'glb', 'gltf', 'obj', 'stl', 'fbx']
 const MAX_BYTES = 20 * 1024 * 1024
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ export default function Editor() {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
     if (file.size > MAX_BYTES) { setError('File too large — maximum 20 MB.'); return }
     if (!ACCEPTED.includes(ext)) {
-      setError('Unsupported format. Upload a PNG, JPG, or WebP heightmap.')
+      setError('Unsupported format. Upload a PNG/JPG/WebP heightmap or a GLB, GLTF, OBJ, STL, FBX model.')
       return
     }
     setError(null)
@@ -189,7 +189,7 @@ export default function Editor() {
             <div className="editor__overlay">
               <span className="editor__overlay-icon">🗺️</span>
               <p>Drop a heightmap image here</p>
-              <p className="editor__overlay-hint">PNG · JPG · WebP · max 20 MB</p>
+              <p className="editor__overlay-hint">PNG · JPG · WebP · GLB · GLTF · OBJ · STL · FBX · max 20 MB</p>
             </div>
           )}
 
@@ -219,7 +219,7 @@ export default function Editor() {
               <input
                 id="dem-upload"
                 type="file"
-                accept=".png,.jpg,.jpeg,.webp"
+                accept=".png,.jpg,.jpeg,.webp,.glb,.gltf,.obj,.stl,.fbx"
                 className="editor__file-hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
               />
