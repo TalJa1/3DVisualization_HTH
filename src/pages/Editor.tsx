@@ -1,6 +1,7 @@
-import { useRef, useState, useCallback } from 'react'
-import * as THREE from 'three'
+import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import TerrainScene from '../components/TerrainScene'
+import { useModel } from '../context/ModelContext'
 import './Editor.css'
 
 // ── heightmap parser ──────────────────────────────────────────────────────────
@@ -40,67 +41,6 @@ async function parseHeightmap(
   })
 }
 
-// ── export helpers ────────────────────────────────────────────────────────────
-function triggerDownload(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function exportSTL(mesh: THREE.Mesh): void {
-  let geo = mesh.geometry.clone()
-  if (geo.index !== null) geo = geo.toNonIndexed()
-  geo.computeVertexNormals()
-  const pos  = geo.attributes.position as THREE.BufferAttribute
-  const norm = geo.attributes.normal   as THREE.BufferAttribute
-  const lines: string[] = ['solid terrain']
-  for (let i = 0; i < pos.count; i += 3) {
-    lines.push(
-      `  facet normal ${norm.getX(i).toFixed(6)} ${norm.getY(i).toFixed(6)} ${norm.getZ(i).toFixed(6)}`,
-      '    outer loop',
-    )
-    for (let j = 0; j < 3; j++) {
-      lines.push(
-        `      vertex ${pos.getX(i+j).toFixed(6)} ${pos.getY(i+j).toFixed(6)} ${pos.getZ(i+j).toFixed(6)}`,
-      )
-    }
-    lines.push('    endloop', '  endfacet')
-  }
-  lines.push('endsolid terrain')
-  geo.dispose()
-  triggerDownload(lines.join('\n'), 'terrain.stl')
-}
-
-function exportOBJ(mesh: THREE.Mesh): void {
-  let geo = mesh.geometry.clone()
-  if (geo.index !== null) geo = geo.toNonIndexed()
-  const pos  = geo.attributes.position as THREE.BufferAttribute
-  const norm = geo.attributes.normal   as THREE.BufferAttribute | undefined
-  const lines: string[] = ['# terrain.obj', 'g terrain']
-  for (let i = 0; i < pos.count; i++) {
-    lines.push(`v ${pos.getX(i).toFixed(6)} ${pos.getY(i).toFixed(6)} ${pos.getZ(i).toFixed(6)}`)
-  }
-  if (norm) {
-    for (let i = 0; i < norm.count; i++) {
-      lines.push(`vn ${norm.getX(i).toFixed(6)} ${norm.getY(i).toFixed(6)} ${norm.getZ(i).toFixed(6)}`)
-    }
-    for (let i = 0; i < pos.count; i += 3) {
-      const a = i+1, b = i+2, c = i+3
-      lines.push(`f ${a}//${a} ${b}//${b} ${c}//${c}`)
-    }
-  } else {
-    for (let i = 0; i < pos.count; i += 3) {
-      lines.push(`f ${i+1} ${i+2} ${i+3}`)
-    }
-  }
-  geo.dispose()
-  triggerDownload(lines.join('\n'), 'terrain.obj')
-}
-
 // ── constants ─────────────────────────────────────────────────────────────────
 const DETAIL_LABELS: Record<number, string> = {
   1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Ultra',
@@ -109,23 +49,19 @@ const ACCEPTED = ['png', 'jpg', 'jpeg', 'webp', 'glb', 'gltf', 'obj', 'stl', 'fb
 const MAX_BYTES = 20 * 1024 * 1024
 
 // ── component ─────────────────────────────────────────────────────────────────
-interface HeightmapState {
-  data: Float32Array
-  width: number
-  height: number
-  fileName: string
-}
-
 export default function Editor() {
-  const [heightmap,     setHeightmap]     = useState<HeightmapState | null>(null)
-  const [heightScale,   setHeightScale]   = useState(1)
-  const [polygonDetail, setPolygonDetail] = useState(3)
-  const [colorScheme,   setColorScheme]   = useState('terrain')
-  const [error,         setError]         = useState<string | null>(null)
-  const [loading,       setLoading]       = useState(false)
-  const [isDragOver,    setIsDragOver]    = useState(false)
+  const navigate = useNavigate()
+  const {
+    heightmap, setHeightmap,
+    heightScale, setHeightScale,
+    polygonDetail, setPolygonDetail,
+    colorScheme, setColorScheme,
+    meshRef,
+  } = useModel()
 
-  const meshRef = useRef<THREE.Mesh | null>(null)
+  const [error,      setError]      = useState<string | null>(null)
+  const [loading,    setLoading]    = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -144,7 +80,7 @@ export default function Editor() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [setHeightmap])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -152,13 +88,6 @@ export default function Editor() {
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
   }, [handleFile])
-
-  const handleExport = useCallback((fmt: 'stl' | 'obj') => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    if (fmt === 'stl') exportSTL(mesh)
-    else               exportOBJ(mesh)
-  }, [])
 
   return (
     <div className="editor">
@@ -283,18 +212,10 @@ export default function Editor() {
             <button
               type="button"
               className="btn btn--primary editor__export-btn"
-              onClick={() => handleExport('stl')}
+              onClick={() => navigate('/export')}
               disabled={!heightmap}
             >
-              ↓ Export STL
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost editor__export-btn"
-              onClick={() => handleExport('obj')}
-              disabled={!heightmap}
-            >
-              ↓ Export OBJ
+              Go to Export →
             </button>
           </div>
 

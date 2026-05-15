@@ -4,11 +4,13 @@ import Home   from './pages/Home'
 import Editor from './pages/Editor'
 import Export from './pages/Export'
 import About  from './pages/About'
+import { ModelProvider } from './context/ModelContext'
 import './App.css'
 
 function App() {
   return (
     <BrowserRouter>
+      <ModelProvider>
       <Layout>
         <Routes>
           <Route path="/"        element={<Home   />} />
@@ -17,6 +19,7 @@ function App() {
           <Route path="/about"   element={<About  />} />
         </Routes>
       </Layout>
+      </ModelProvider>
     </BrowserRouter>
   )
 }

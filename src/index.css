@@ -59,7 +59,7 @@
   max-width: 100%;
   min-height: 100vh;
   margin: 0 auto;
-  text-align: center;
+  text-align: left;
   border-inline: 1px solid var(--border);
   display: flex;
   flex-direction: column;

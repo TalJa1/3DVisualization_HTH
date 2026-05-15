@@ -34,7 +34,7 @@ export default function Home() {
             {
               n: "01",
               title: "Upload your DEM / Heightmap",
-              desc: "Drag & drop or browse for a .asc, .tif, .png or .raw heightmap.",
+              desc: "Drag & drop or browse for a .png, .jpg, or .webp greyscale heightmap image.",
             },
             {
               n: "02",
