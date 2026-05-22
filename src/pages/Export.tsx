@@ -48,6 +48,8 @@ export default function Export() {
             colorScheme={colorScheme}
             polygonDetail={polygonDetail}
             meshRef={meshRef}
+            autoRotate={true}
+            showGrid={false}
           />
         </div>
       </div>
