@@ -142,6 +142,9 @@ export default function Editor() {
   const [autoRotate,    setAutoRotate]    = useState(false)
   const [showGrid,      setShowGrid]      = useState(true)
   const [lightIntensity, setLightIntensity] = useState(1.6)
+  const [posX, setPosX] = useState(0)
+  const [posY, setPosY] = useState(0)
+  const [posZ, setPosZ] = useState(0)
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -207,6 +210,9 @@ export default function Editor() {
             autoRotate={autoRotate}
             showGrid={showGrid}
             lightIntensity={lightIntensity}
+            offsetX={posX}
+            offsetY={posY}
+            offsetZ={posZ}
           />
 
           {!hasContent && !loading && !isDragOver && (
@@ -351,6 +357,51 @@ export default function Editor() {
                 <span>Show Grid</span>
               </label>
             </div>
+          </div>
+
+          <div className="editor__field">
+            <label htmlFor="pos-x" className="editor__label">
+              Position X
+              <span className="editor__value">{posX.toFixed(1)}</span>
+            </label>
+            <input
+              id="pos-x"
+              type="range" min="-10" max="10" step="0.1"
+              value={posX}
+              onChange={e => setPosX(Number(e.target.value))}
+              className="editor__slider"
+            />
+            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
+          </div>
+
+          <div className="editor__field">
+            <label htmlFor="pos-y" className="editor__label">
+              Position Y
+              <span className="editor__value">{posY.toFixed(1)}</span>
+            </label>
+            <input
+              id="pos-y"
+              type="range" min="-10" max="10" step="0.1"
+              value={posY}
+              onChange={e => setPosY(Number(e.target.value))}
+              className="editor__slider"
+            />
+            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
+          </div>
+
+          <div className="editor__field">
+            <label htmlFor="pos-z" className="editor__label">
+              Position Z
+              <span className="editor__value">{posZ.toFixed(1)}</span>
+            </label>
+            <input
+              id="pos-z"
+              type="range" min="-10" max="10" step="0.1"
+              value={posZ}
+              onChange={e => setPosZ(Number(e.target.value))}
+              className="editor__slider"
+            />
+            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
           </div>
 
           <div className="editor__divider" />

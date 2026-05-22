@@ -117,6 +117,9 @@ export interface TerrainSceneProps {
   autoRotate?: boolean
   showGrid?: boolean
   lightIntensity?: number
+  offsetX?: number
+  offsetY?: number
+  offsetZ?: number
 }
 
 export default function TerrainScene({
@@ -127,6 +130,9 @@ export default function TerrainScene({
   autoRotate = false,
   showGrid = true,
   lightIntensity = 1.6,
+  offsetX = 0,
+  offsetY = 0,
+  offsetZ = 0,
 }: TerrainSceneProps) {
   return (
     <div className="terrain-canvas">
@@ -140,25 +146,27 @@ export default function TerrainScene({
         <directionalLight position={[10, 20, 10]} intensity={lightIntensity} castShadow />
         <hemisphereLight args={['#8cb4d2', '#0e0f14', 0.25] as unknown as []} />
 
-        {model3D ? (
-          <primitive object={model3D} />
-        ) : heightmapData ? (
-          <TerrainMesh
-            heightmapData={heightmapData}
-            mapWidth={mapWidth}
-            mapHeight={mapHeight}
-            heightScale={heightScale}
-            colorScheme={colorScheme}
-            polygonDetail={polygonDetail}
-            meshRef={meshRef}
-            wireframe={wireframe}
-          />
-        ) : (
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[10, 10, 32, 32]} />
-            <meshStandardMaterial color="#1a1b2e" wireframe />
-          </mesh>
-        )}
+        <group position={[offsetX, offsetY, offsetZ]}>
+          {model3D ? (
+            <primitive object={model3D} />
+          ) : heightmapData ? (
+            <TerrainMesh
+              heightmapData={heightmapData}
+              mapWidth={mapWidth}
+              mapHeight={mapHeight}
+              heightScale={heightScale}
+              colorScheme={colorScheme}
+              polygonDetail={polygonDetail}
+              meshRef={meshRef}
+              wireframe={wireframe}
+            />
+          ) : (
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[10, 10, 32, 32]} />
+              <meshStandardMaterial color="#1a1b2e" wireframe />
+            </mesh>
+          )}
+        </group>
 
         {showGrid && <gridHelper args={[20, 20, '#2e2e4e', '#1a1b2e']} />}
         <OrbitControls makeDefault enableDamping dampingFactor={0.06} autoRotate={autoRotate} autoRotateSpeed={1.5} />
