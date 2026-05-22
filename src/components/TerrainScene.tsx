@@ -43,11 +43,12 @@ interface TerrainMeshProps {
   colorScheme: string
   polygonDetail: number
   meshRef: React.MutableRefObject<THREE.Mesh | null>
+  wireframe?: boolean
 }
 
 function TerrainMesh({
   heightmapData, mapWidth, mapHeight,
-  heightScale, colorScheme, polygonDetail, meshRef,
+  heightScale, colorScheme, polygonDetail, meshRef, wireframe = false,
 }: TerrainMeshProps) {
   const segments = DETAIL_SEGMENTS[polygonDetail] ?? 128
 
@@ -97,7 +98,7 @@ function TerrainMesh({
 
   return (
     <mesh ref={meshRef as React.Ref<THREE.Mesh>} geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.85} metalness={0.05} />
+      <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.85} metalness={0.05} wireframe={wireframe} />
     </mesh>
   )
 }
@@ -111,11 +112,19 @@ export interface TerrainSceneProps {
   colorScheme: string
   polygonDetail: number
   meshRef: React.MutableRefObject<THREE.Mesh | null>
+  wireframe?: boolean
+  autoRotate?: boolean
+  showGrid?: boolean
+  lightIntensity?: number
 }
 
 export default function TerrainScene({
   heightmapData, mapWidth, mapHeight,
   heightScale, colorScheme, polygonDetail, meshRef,
+  wireframe = false,
+  autoRotate = false,
+  showGrid = true,
+  lightIntensity = 1.6,
 }: TerrainSceneProps) {
   return (
     <div className="terrain-canvas">
@@ -126,7 +135,7 @@ export default function TerrainScene({
       >
         <color attach="background" args={['#0e0f14']} />
         <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 20, 10]} intensity={1.6} castShadow />
+        <directionalLight position={[10, 20, 10]} intensity={lightIntensity} castShadow />
         <hemisphereLight args={['#8cb4d2', '#0e0f14', 0.25] as unknown as []} />
 
         {heightmapData ? (
@@ -138,6 +147,7 @@ export default function TerrainScene({
             colorScheme={colorScheme}
             polygonDetail={polygonDetail}
             meshRef={meshRef}
+            wireframe={wireframe}
           />
         ) : (
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -146,8 +156,8 @@ export default function TerrainScene({
           </mesh>
         )}
 
-        <gridHelper args={[20, 20, '#2e2e4e', '#1a1b2e']} />
-        <OrbitControls makeDefault enableDamping dampingFactor={0.06} />
+        {showGrid && <gridHelper args={[20, 20, '#2e2e4e', '#1a1b2e']} />}
+        <OrbitControls makeDefault enableDamping dampingFactor={0.06} autoRotate={autoRotate} autoRotateSpeed={1.5} />
       </Canvas>
     </div>
   )

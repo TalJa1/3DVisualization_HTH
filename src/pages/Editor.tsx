@@ -59,9 +59,13 @@ export default function Editor() {
     meshRef,
   } = useModel()
 
-  const [error,      setError]      = useState<string | null>(null)
-  const [loading,    setLoading]    = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+  const [loading,       setLoading]       = useState(false)
+  const [isDragOver,    setIsDragOver]    = useState(false)
+  const [wireframe,     setWireframe]     = useState(false)
+  const [autoRotate,    setAutoRotate]    = useState(false)
+  const [showGrid,      setShowGrid]      = useState(true)
+  const [lightIntensity, setLightIntensity] = useState(1.6)
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -112,6 +116,10 @@ export default function Editor() {
             colorScheme={colorScheme}
             polygonDetail={polygonDetail}
             meshRef={meshRef}
+            wireframe={wireframe}
+            autoRotate={autoRotate}
+            showGrid={showGrid}
+            lightIntensity={lightIntensity}
           />
 
           {!heightmap && !loading && !isDragOver && (
@@ -204,6 +212,51 @@ export default function Editor() {
               <option value="heatmap">Heatmap</option>
               <option value="ocean">Ocean / Topo</option>
             </select>
+          </div>
+
+          <div className="editor__field">
+            <label htmlFor="light-intensity" className="editor__label">
+              Light Intensity
+              <span className="editor__value">{lightIntensity.toFixed(1)}</span>
+            </label>
+            <input
+              id="light-intensity"
+              type="range" min="0" max="3" step="0.1"
+              value={lightIntensity}
+              onChange={e => setLightIntensity(Number(e.target.value))}
+              className="editor__slider"
+            />
+            <div className="editor__slider-ticks"><span>0</span><span>3</span></div>
+          </div>
+
+          <div className="editor__field">
+            <span className="editor__label">View Options</span>
+            <div className="editor__toggles">
+              <label className="editor__toggle">
+                <input
+                  type="checkbox"
+                  checked={wireframe}
+                  onChange={e => setWireframe(e.target.checked)}
+                />
+                <span>Wireframe</span>
+              </label>
+              <label className="editor__toggle">
+                <input
+                  type="checkbox"
+                  checked={autoRotate}
+                  onChange={e => setAutoRotate(e.target.checked)}
+                />
+                <span>Auto-rotate</span>
+              </label>
+              <label className="editor__toggle">
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={e => setShowGrid(e.target.checked)}
+                />
+                <span>Show Grid</span>
+              </label>
+            </div>
           </div>
 
           <div className="editor__divider" />
