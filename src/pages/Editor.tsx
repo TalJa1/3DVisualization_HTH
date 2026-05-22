@@ -1,5 +1,13 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js'
+import { STLLoader } from 'three/addons/loaders/STLLoader.js'
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js'
+import { TDSLoader } from 'three/addons/loaders/TDSLoader.js'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
 import './Editor.css'
@@ -41,24 +49,92 @@ async function parseHeightmap(
   })
 }
 
+// ── 3D model loader ───────────────────────────────────────────────────────────
+function normalizeGroup(group: THREE.Object3D): THREE.Group {
+  const box = new THREE.Box3().setFromObject(group)
+  const center = box.getCenter(new THREE.Vector3())
+  const size = box.getSize(new THREE.Vector3())
+  const maxDim = Math.max(size.x, size.y, size.z) || 1
+  const scale = 8 / maxDim
+  group.position.sub(center.multiplyScalar(scale))
+  group.scale.setScalar(scale)
+  const wrapper = new THREE.Group()
+  wrapper.add(group)
+  return wrapper
+}
+
+async function load3DModel(file: File): Promise<THREE.Group> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const url = URL.createObjectURL(file)
+  try {
+    if (ext === 'glb' || ext === 'gltf') {
+      const loader = new GLTFLoader()
+      const gltf = await loader.loadAsync(url)
+      return normalizeGroup(gltf.scene)
+    }
+    if (ext === 'obj') {
+      const loader = new OBJLoader()
+      const group = await loader.loadAsync(url)
+      return normalizeGroup(group)
+    }
+    if (ext === 'fbx') {
+      const loader = new FBXLoader()
+      const group = await loader.loadAsync(url)
+      return normalizeGroup(group)
+    }
+    if (ext === 'stl') {
+      const loader = new STLLoader()
+      const geometry = await loader.loadAsync(url)
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#8888aa', roughness: 0.6, metalness: 0.2 }))
+      return normalizeGroup(mesh)
+    }
+    if (ext === 'ply') {
+      const loader = new PLYLoader()
+      const geometry = await loader.loadAsync(url)
+      geometry.computeVertexNormals()
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#8888aa', roughness: 0.6, metalness: 0.2, vertexColors: geometry.hasAttribute('color') }))
+      return normalizeGroup(mesh)
+    }
+    if (ext === 'dae') {
+      const loader = new ColladaLoader()
+      const collada = await loader.loadAsync(url)
+      const scene = collada?.scene
+      if (!scene) throw new Error('Collada file has no scene.')
+      return normalizeGroup(scene)
+    }
+    if (ext === '3ds') {
+      const loader = new TDSLoader()
+      const group = await loader.loadAsync(url)
+      return normalizeGroup(group)
+    }
+    throw new Error(`Unsupported format: .${ext}`)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 // ── constants ─────────────────────────────────────────────────────────────────
 const DETAIL_LABELS: Record<number, string> = {
   1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Ultra',
 }
-const ACCEPTED = ['png', 'jpg', 'jpeg', 'webp', 'glb', 'gltf', 'obj', 'stl', 'fbx']
-const MAX_BYTES = 20 * 1024 * 1024
+const HEIGHTMAP_EXTS = ['png', 'jpg', 'jpeg', 'webp']
+const MODEL_EXTS     = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply', 'dae', '3ds']
+const ACCEPTED       = [...HEIGHTMAP_EXTS, ...MODEL_EXTS]
+const MAX_BYTES      = 100 * 1024 * 1024
 
 // ── component ─────────────────────────────────────────────────────────────────
 export default function Editor() {
   const navigate = useNavigate()
   const {
     heightmap, setHeightmap,
+    model3D, setModel3D,
     heightScale, setHeightScale,
     polygonDetail, setPolygonDetail,
     colorScheme, setColorScheme,
     meshRef,
   } = useModel()
 
+  const [fileName,      setFileName]      = useState<string | null>(null)
   const [error,         setError]         = useState<string | null>(null)
   const [loading,       setLoading]       = useState(false)
   const [isDragOver,    setIsDragOver]    = useState(false)
@@ -69,22 +145,30 @@ export default function Editor() {
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-    if (file.size > MAX_BYTES) { setError('File too large — maximum 20 MB.'); return }
+    if (file.size > MAX_BYTES) { setError('File too large — maximum 100 MB.'); return }
     if (!ACCEPTED.includes(ext)) {
-      setError('Unsupported format. Upload a PNG/JPG/WebP heightmap or a GLB, GLTF, OBJ, STL, FBX model.')
+      setError(`Unsupported format ".${ext}". Accepted: ${ACCEPTED.join(', ')}`)
       return
     }
     setError(null)
     setLoading(true)
     try {
-      const { data, width, height } = await parseHeightmap(file)
-      setHeightmap({ data, width, height, fileName: file.name })
-    } catch {
-      setError('Could not parse the file. Make sure it is a valid image.')
+      if (HEIGHTMAP_EXTS.includes(ext)) {
+        const { data, width, height } = await parseHeightmap(file)
+        setHeightmap({ data, width, height, fileName: file.name })
+        setModel3D(null)
+      } else {
+        const group = await load3DModel(file)
+        setModel3D(group)
+        setHeightmap(null)
+      }
+      setFileName(file.name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load file.')
     } finally {
       setLoading(false)
     }
-  }, [setHeightmap])
+  }, [setHeightmap, setModel3D])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -93,11 +177,13 @@ export default function Editor() {
     if (file) handleFile(file)
   }, [handleFile])
 
+  const hasContent = !!(heightmap || model3D)
+
   return (
     <div className="editor">
       <header className="editor__header">
         <h1>3D Map Editor</h1>
-        <p>Upload a PNG/JPG heightmap — each pixel's brightness becomes terrain elevation.</p>
+        <p>Upload a heightmap image or a 3D model to view and edit it.</p>
       </header>
 
       <div className="editor__workspace">
@@ -116,31 +202,37 @@ export default function Editor() {
             colorScheme={colorScheme}
             polygonDetail={polygonDetail}
             meshRef={meshRef}
+            model3D={model3D}
             wireframe={wireframe}
             autoRotate={autoRotate}
             showGrid={showGrid}
             lightIntensity={lightIntensity}
           />
 
-          {!heightmap && !loading && !isDragOver && (
+          {!hasContent && !loading && !isDragOver && (
             <div className="editor__overlay">
               <span className="editor__overlay-icon">🗺️</span>
-              <p>Drop a heightmap image here</p>
-              <p className="editor__overlay-hint">PNG · JPG · WebP · GLB · GLTF · OBJ · STL · FBX · max 20 MB</p>
+              <p>Drop a file here to get started</p>
+              <p className="editor__overlay-hint">
+                Heightmap: PNG · JPG · WebP
+              </p>
+              <p className="editor__overlay-hint">
+                3D Model: GLB · GLTF · OBJ · FBX · STL · PLY · DAE · 3DS
+              </p>
             </div>
           )}
 
           {loading && (
             <div className="editor__overlay">
               <div className="editor__spinner" />
-              <p>Processing heightmap…</p>
+              <p>Loading…</p>
             </div>
           )}
 
           {isDragOver && (
             <div className="editor__overlay editor__overlay--drag">
               <span className="editor__overlay-icon">📂</span>
-              <p>Drop to load terrain</p>
+              <p>Drop to load</p>
             </div>
           )}
         </div>
@@ -150,21 +242,23 @@ export default function Editor() {
           <h2 className="editor__panel-title">Controls</h2>
 
           <div className="editor__field">
-            <span className="editor__label">Heightmap File</span>
+            <span className="editor__label">File</span>
             <label className="editor__upload-btn" htmlFor="dem-upload">
               ⬆ Choose file
               <input
                 id="dem-upload"
                 type="file"
-                accept=".png,.jpg,.jpeg,.webp,.glb,.gltf,.obj,.stl,.fbx"
+                accept={ACCEPTED.map(e => `.${e}`).join(',')}
                 className="editor__file-hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
               />
             </label>
-            {heightmap && (
+            {fileName && (
               <span className="editor__file-name">
-                📄 {heightmap.fileName}
-                <span className="editor__file-dim"> ({heightmap.width}×{heightmap.height})</span>
+                📄 {fileName}
+                {heightmap && (
+                  <span className="editor__file-dim"> ({heightmap.width}×{heightmap.height})</span>
+                )}
               </span>
             )}
             {error && <span className="editor__error" role="alert">{error}</span>}
@@ -266,7 +360,7 @@ export default function Editor() {
               type="button"
               className="btn btn--primary editor__export-btn"
               onClick={() => navigate('/export')}
-              disabled={!heightmap}
+              disabled={!hasContent}
             >
               Go to Export →
             </button>

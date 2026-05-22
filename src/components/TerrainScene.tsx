@@ -112,6 +112,7 @@ export interface TerrainSceneProps {
   colorScheme: string
   polygonDetail: number
   meshRef: React.MutableRefObject<THREE.Mesh | null>
+  model3D?: THREE.Group | null
   wireframe?: boolean
   autoRotate?: boolean
   showGrid?: boolean
@@ -121,6 +122,7 @@ export interface TerrainSceneProps {
 export default function TerrainScene({
   heightmapData, mapWidth, mapHeight,
   heightScale, colorScheme, polygonDetail, meshRef,
+  model3D = null,
   wireframe = false,
   autoRotate = false,
   showGrid = true,
@@ -138,7 +140,9 @@ export default function TerrainScene({
         <directionalLight position={[10, 20, 10]} intensity={lightIntensity} castShadow />
         <hemisphereLight args={['#8cb4d2', '#0e0f14', 0.25] as unknown as []} />
 
-        {heightmapData ? (
+        {model3D ? (
+          <primitive object={model3D} />
+        ) : heightmapData ? (
           <TerrainMesh
             heightmapData={heightmapData}
             mapWidth={mapWidth}

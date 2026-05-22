@@ -12,6 +12,8 @@ export interface HeightmapState {
 interface ModelContextValue {
   heightmap: HeightmapState | null
   setHeightmap: (h: HeightmapState | null) => void
+  model3D: THREE.Group | null
+  setModel3D: (m: THREE.Group | null) => void
   heightScale: number
   setHeightScale: (v: number) => void
   polygonDetail: number
@@ -25,6 +27,7 @@ const ModelContext = createContext<ModelContextValue | null>(null)
 
 export function ModelProvider({ children }: { children: ReactNode }) {
   const [heightmap,     setHeightmap]     = useState<HeightmapState | null>(null)
+  const [model3D,       setModel3D]       = useState<THREE.Group | null>(null)
   const [heightScale,   setHeightScale]   = useState(1)
   const [polygonDetail, setPolygonDetail] = useState(3)
   const [colorScheme,   setColorScheme]   = useState('terrain')
@@ -33,6 +36,7 @@ export function ModelProvider({ children }: { children: ReactNode }) {
   return (
     <ModelContext.Provider value={{
       heightmap, setHeightmap,
+      model3D, setModel3D,
       heightScale, setHeightScale,
       polygonDetail, setPolygonDetail,
       colorScheme, setColorScheme,
