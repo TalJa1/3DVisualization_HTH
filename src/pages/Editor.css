@@ -156,7 +156,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: fit-content;
+  width: 100%;
   padding: 0.45rem 0.9rem;
   background: rgba(170, 59, 255, 0.12);
   border: 1px solid rgba(170, 59, 255, 0.3);
