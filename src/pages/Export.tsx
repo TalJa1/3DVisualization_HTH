@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import * as THREE from 'three'
+import type * as THREE from 'three'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
 import { exportSTL, exportOBJ } from '../utils/exportModel'
@@ -52,11 +52,12 @@ export default function Export() {
   const hasContent = !!(heightmap || model3D)
 
   const handleExport = useCallback((fmt: 'stl' | 'obj') => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    if (fmt === 'stl') exportSTL(mesh)
-    else               exportOBJ(mesh)
-  }, [meshRef])
+    // Prefer the live heightmap mesh; fall back to the imported/terrain model3D group
+    const target: THREE.Object3D | null = meshRef.current ?? model3D
+    if (!target) return
+    if (fmt === 'stl') exportSTL(target)
+    else               exportOBJ(target)
+  }, [meshRef, model3D])
 
   const handleGcodeExport = useCallback(() => {
     const geo = getExportGeometry(meshRef, model3D)
@@ -153,7 +154,7 @@ export default function Export() {
                 type="button"
                 className="btn btn--primary export__dl-btn"
                 onClick={() => handleExport(f.format.toLowerCase() as 'stl' | 'obj')}
-                disabled={!meshRef.current}
+                disabled={!hasContent}
               >
                 Download .{f.format.toLowerCase()}
               </button>
