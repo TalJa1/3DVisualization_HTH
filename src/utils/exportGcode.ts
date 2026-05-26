@@ -45,7 +45,7 @@ function buildHeightGrid(geo: THREE.BufferGeometry, gridRes: number): HeightGrid
 function sampleHeight(
   grid: Float32Array,
   gridRes: number,
-  bbox: THREE.Box3,
+  _bbox: THREE.Box3,
   rangeX: number,
   rangeZ: number,
   xMm: number,
