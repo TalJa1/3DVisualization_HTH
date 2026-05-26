@@ -4,6 +4,7 @@ import './Navbar.css'
 
 const NAV_ITEMS = [
   { to: '/',        label: 'Home' },
+  { to: '/terrain', label: 'Map Terrain' },
   { to: '/editor',  label: '3D Editor' },
   { to: '/export',  label: 'Export' },
   { to: '/about',   label: 'About' },

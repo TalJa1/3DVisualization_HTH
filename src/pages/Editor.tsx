@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -10,6 +10,7 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js'
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
+import { buildTerrainGeometry, getElevationColor } from '../utils/terrainToMesh.js'
 import './Editor.css'
 
 // ── heightmap parser ──────────────────────────────────────────────────────────
@@ -132,7 +133,49 @@ export default function Editor() {
     polygonDetail, setPolygonDetail,
     colorScheme, setColorScheme,
     meshRef,
+    terrainData, setTerrainData,
   } = useModel()
+
+  useEffect(() => {
+    if (!terrainData) return
+
+    const { data } = terrainData
+    const GRID = 32
+    const geometry = buildTerrainGeometry(data, GRID, 0.005)
+
+    // compute elevation range for colour mapping
+    let minElev = Infinity
+    let maxElev = -Infinity
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] < minElev) minElev = data[i]
+      if (data[i] > maxElev) maxElev = data[i]
+    }
+
+    // apply vertex colours
+    const count = geometry.attributes.position.count
+    const colors = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const elev = data[i] ?? 0
+      const col = getElevationColor(elev, minElev, maxElev)
+      colors[i * 3]     = col.r
+      colors[i * 3 + 1] = col.g
+      colors[i * 3 + 2] = col.b
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      metalness: 0.05,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(geometry, material)
+    const group = normalizeGroup(mesh)
+
+    setHeightmap(null)
+    setModel3D(group)
+    setTerrainData(null)
+  }, [terrainData, setHeightmap, setModel3D, setTerrainData])
 
   const [fileName,      setFileName]      = useState<string | null>(null)
   const [error,         setError]         = useState<string | null>(null)

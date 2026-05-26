@@ -3,7 +3,8 @@ import Layout from './components/Layout'
 import Home   from './pages/Home'
 import Editor from './pages/Editor'
 import Export from './pages/Export'
-import About  from './pages/About'
+import About   from './pages/About'
+import Terrain from './pages/Terrain'
 import { ModelProvider } from './context/ModelContext'
 import './App.css'
 
@@ -16,6 +17,7 @@ function App() {
           <Route path="/"        element={<Home   />} />
           <Route path="/editor"  element={<Editor />} />
           <Route path="/export"  element={<Export />} />
+          <Route path="/terrain" element={<Terrain />} />
           <Route path="/about"   element={<About  />} />
         </Routes>
       </Layout>
