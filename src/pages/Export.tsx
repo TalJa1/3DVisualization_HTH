@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type * as THREE from 'three'
+import * as THREE from 'three'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
 import { exportSTL, exportOBJ } from '../utils/exportModel'
-import { generateGcode } from '../utils/exportGcode.js'
+import { generateGcode } from '../utils/exportGcode'
 import './Export.css'
 
 interface GcodeSettings {

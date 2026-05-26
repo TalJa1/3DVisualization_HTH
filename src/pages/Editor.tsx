@@ -10,7 +10,7 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js'
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
-import { buildTerrainGeometry, getElevationColor } from '../utils/terrainToMesh.js'
+import { buildTerrainGeometry, getElevationColor } from '../utils/terrainToMesh'
 import './Editor.css'
 
 // ── heightmap parser ──────────────────────────────────────────────────────────

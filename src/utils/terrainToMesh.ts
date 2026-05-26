@@ -1,24 +1,16 @@
 import * as THREE from 'three'
 
-/**
- * Build a THREE.PlaneGeometry displaced by real elevation data.
- *
- * @param {Float32Array} heightmapData - gridSize*gridSize elevation values (metres)
- * @param {number} gridSize - grid resolution along each axis (default 32)
- * @param {number} verticalScale - multiplier applied to elevation (default 0.005)
- * @returns {THREE.BufferGeometry}
- */
 export function buildTerrainGeometry(
-  heightmapData,
-  gridSize = 32,
-  verticalScale = 0.005,
-) {
+  heightmapData: Float32Array,
+  gridSize: number = 32,
+  verticalScale: number = 0.005,
+): THREE.BufferGeometry {
   const geometry = new THREE.PlaneGeometry(10, 10, gridSize - 1, gridSize - 1)
 
   // Rotate flat XY plane to face up (XZ plane)
   geometry.rotateX(-Math.PI / 2)
 
-  const positions = geometry.attributes.position
+  const positions = geometry.attributes.position as THREE.BufferAttribute
   const count = positions.count
 
   // Find min elevation for normalisation
@@ -40,24 +32,16 @@ export function buildTerrainGeometry(
   return geometry
 }
 
-/**
- * Map a normalised elevation value [0, 1] to a topo-style colour:
- *   0.0 → deep green (lowlands)
- *   0.5 → earthy brown (mid slopes)
- *   0.8 → light grey (high altitude)
- *   1.0 → white (snow peaks)
- *
- * @param {number} elevation - raw elevation for this vertex (metres, already normalised)
- * @param {number} minElev   - minimum elevation in the dataset
- * @param {number} maxElev   - maximum elevation in the dataset
- * @returns {THREE.Color}
- */
-export function getElevationColor(elevation, minElev, maxElev) {
+export function getElevationColor(
+  elevation: number,
+  minElev: number,
+  maxElev: number,
+): THREE.Color {
   const range = maxElev - minElev || 1
   const t = Math.max(0, Math.min(1, (elevation - minElev) / range))
 
   // Colour stops: [t, r, g, b] in linear [0,1]
-  const stops = [
+  const stops: [number, number, number, number][] = [
     [0.00, 0.13, 0.40, 0.13], // #214d21 deep green
     [0.45, 0.35, 0.55, 0.20], // #598c33 mid green
     [0.60, 0.55, 0.40, 0.20], // #8c6633 brown
