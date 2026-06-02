@@ -10,7 +10,7 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js'
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js'
 import TerrainScene from '../components/TerrainScene'
 import { useModel } from '../context/ModelContext'
-import { buildTerrainGeometry, getElevationColor } from '../utils/terrainToMesh'
+import { buildTerrainGeometry, getElevationColor, addSolidBase } from '../utils/terrainToMesh'
 import './Editor.css'
 
 // ── heightmap parser ──────────────────────────────────────────────────────────
@@ -163,14 +163,22 @@ export default function Editor() {
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
+    // Add side walls + bottom cap so the mesh is a printable solid
+    const solid = addSolidBase(geometry, GRID - 1)
+    geometry.dispose()
+
     const material = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.85,
       metalness: 0.05,
       side: THREE.DoubleSide,
     })
-    const mesh = new THREE.Mesh(geometry, material)
+    const mesh = new THREE.Mesh(solid, material)
     const group = normalizeGroup(mesh)
+
+    // Lift so the terrain bottom sits exactly on the grid plane (Y=0)
+    const bbox = new THREE.Box3().setFromObject(group)
+    group.position.y -= bbox.min.y
 
     setHeightmap(null)
     setModel3D(group)

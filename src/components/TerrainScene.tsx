@@ -2,6 +2,7 @@ import { useMemo, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import { addSolidBase } from '../utils/terrainToMesh'
 import './TerrainScene.css'
 
 // ── detail level → mesh segments ─────────────────────────────────────────────
@@ -88,9 +89,12 @@ function TerrainMesh({
     }
 
     pos.needsUpdate = true
-    geo.computeVertexNormals()
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    return geo
+
+    // Build solid (side walls + bottom cap) for 3D-print readiness
+    const solid = addSolidBase(geo, segments)
+    geo.dispose()
+    return solid
   }, [heightmapData, mapWidth, mapHeight, heightScale, colorScheme, segments])
 
   // dispose old geometry when it changes
