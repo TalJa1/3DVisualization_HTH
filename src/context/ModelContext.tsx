@@ -9,9 +9,16 @@ export interface HeightmapState {
   fileName: string
 }
 
+export interface BoundingBox {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
 export interface TerrainCapture {
   data: Float32Array
-  bbox: { north: number; south: number; east: number; west: number }
+  bbox: BoundingBox
 }
 
 interface ModelContextValue {
@@ -28,6 +35,13 @@ interface ModelContextValue {
   meshRef: MutableRefObject<THREE.Mesh | null>
   terrainData: TerrainCapture | null
   setTerrainData: (t: TerrainCapture | null) => void
+  // Persisted map view state
+  mapCenter: [number, number]
+  setMapCenter: (c: [number, number]) => void
+  mapZoom: number
+  setMapZoom: (z: number) => void
+  savedBbox: BoundingBox | null
+  setSavedBbox: (b: BoundingBox | null) => void
 }
 
 const ModelContext = createContext<ModelContextValue | null>(null)
@@ -39,6 +53,9 @@ export function ModelProvider({ children }: { children: ReactNode }) {
   const [polygonDetail, setPolygonDetail] = useState(3)
   const [colorScheme,   setColorScheme]   = useState('terrain')
   const [terrainData,   setTerrainData]   = useState<TerrainCapture | null>(null)
+  const [mapCenter,     setMapCenter]     = useState<[number, number]>([20, 0])
+  const [mapZoom,       setMapZoom]       = useState(3)
+  const [savedBbox,     setSavedBbox]     = useState<BoundingBox | null>(null)
   const meshRef = useRef<THREE.Mesh | null>(null)
 
   return (
@@ -50,6 +67,9 @@ export function ModelProvider({ children }: { children: ReactNode }) {
       colorScheme, setColorScheme,
       meshRef,
       terrainData, setTerrainData,
+      mapCenter, setMapCenter,
+      mapZoom, setMapZoom,
+      savedBbox, setSavedBbox,
     }}>
       {children}
     </ModelContext.Provider>

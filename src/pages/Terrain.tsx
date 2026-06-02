@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import MapTerrainTab from '../components/MapTerrainTab'
-import type { BoundingBox } from '../components/MapTerrainTab'
+import type { BoundingBox } from '../context/ModelContext'
 import { useModel } from '../context/ModelContext'
 import './Terrain.css'
 
