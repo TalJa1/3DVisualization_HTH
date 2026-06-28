@@ -48,9 +48,13 @@ export function addSolidBase(geo: THREE.BufferGeometry, segments: number): THREE
     wall(...gv(r * cols + segments), ...gv((r + 1) * cols + segments))
   }
 
-  // Bottom cap at Y=0 (two triangles covering the 10×10 base)
-  addV(-5, 0, -5); addV(5, 0, 5); addV(5, 0, -5)
-  addV(-5, 0, -5); addV(-5, 0, 5); addV(5, 0, 5)
+  // Bottom cap at Y=0 using actual geometry bounds
+  const bx0 = pos.getX(0)
+  const bz0 = pos.getZ(0)
+  const bx1 = pos.getX(cols * cols - 1)
+  const bz1 = pos.getZ(cols * cols - 1)
+  addV(bx0, 0, bz0); addV(bx1, 0, bz1); addV(bx1, 0, bz0)
+  addV(bx0, 0, bz0); addV(bx0, 0, bz1); addV(bx1, 0, bz1)
 
   // Flatten the indexed top surface and merge everything
   const topNI = geo.toNonIndexed()
