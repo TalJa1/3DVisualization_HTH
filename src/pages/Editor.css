@@ -1,43 +1,164 @@
-/* ─── Editor layout ─────────────────────────────────────────────────────────── */
+/* ─── Editor header ───────────────────────────────────────────────────────── */
 .editor__header {
-  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(170, 59, 255, 0.12);
+}
+.editor__eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #a855f7;
+  margin-bottom: 0.4rem;
 }
 .editor__header h1 {
-  font-size: 1.9rem;
+  font-size: 1.95rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: #f3f4f6;
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.35rem;
 }
 .editor__header p {
   color: #9ca3af;
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  max-width: 48ch;
+}
+.editor__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  white-space: nowrap;
+}
+.editor__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+.editor__status-dot--live {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
 }
 
+/* ─── Workspace layout ────────────────────────────────────────────────────── */
 .editor__workspace {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 320px;
   gap: 1.5rem;
   align-items: stretch;
 }
 
-/* ─── 3D canvas wrapper ──────────────────────────────────────────────────────── */
+/* ─── 3D canvas wrapper ───────────────────────────────────────────────────── */
 .editor__canvas-wrap {
   position: relative;
-  min-height: clamp(280px, 45vw, 580px);
-  background: #0e0f14;
-  border-radius: 16px;
+  min-height: clamp(360px, 52vw, 660px);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(124, 58, 237, 0.12), transparent 60%),
+    #0c0d12;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(170, 59, 255, 0.15);
+  border: 1px solid rgba(170, 59, 255, 0.16);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4), 0 10px 40px rgba(0, 0, 0, 0.3);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-
 .editor__canvas-wrap--dragover {
   border-color: #aa3bff;
-  box-shadow: 0 0 0 3px rgba(170, 59, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(170, 59, 255, 0.25), inset 0 0 60px rgba(170, 59, 255, 0.15);
 }
 
-/* ─── Overlays (empty state / loading / drag) ────────────────────────────────── */
+/* ─── Floating viewport toolbar ───────────────────────────────────────────── */
+.editor__viewbar {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 12;
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  background: rgba(18, 19, 26, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+.editor__viewbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.editor__viewbtn svg { width: 18px; height: 18px; }
+.editor__viewbtn:hover { background: rgba(255, 255, 255, 0.07); color: #e5e7eb; }
+.editor__viewbtn--on {
+  background: rgba(170, 59, 255, 0.22);
+  color: #d8b4fe;
+  box-shadow: inset 0 0 0 1px rgba(170, 59, 255, 0.4);
+}
+
+/* ─── Info HUD ─────────────────────────────────────────────────────────────── */
+.editor__hud {
+  position: absolute;
+  bottom: 0.85rem;
+  left: 0.85rem;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(18, 19, 26, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 0.76rem;
+  color: #9ca3af;
+  max-width: calc(100% - 1.7rem);
+}
+.editor__hud-type {
+  font-weight: 700;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  background: rgba(170, 59, 255, 0.15);
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.editor__hud-name {
+  color: #e5e7eb;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor__hud-dim {
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ─── Overlays ─────────────────────────────────────────────────────────────── */
 .editor__overlay {
   position: absolute;
   inset: 0;
@@ -45,42 +166,49 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  background: rgba(14, 15, 20, 0.72);
-  backdrop-filter: blur(4px);
+  gap: 0.6rem;
+  background: rgba(12, 13, 18, 0.55);
+  backdrop-filter: blur(3px);
   pointer-events: none;
   color: #9ca3af;
-  font-size: 1rem;
+  font-size: 0.95rem;
   text-align: center;
   z-index: 10;
 }
-
-.editor__overlay p {
-  margin: 0;
+.editor__overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 2rem 2.5rem;
+  border: 1.5px dashed rgba(170, 59, 255, 0.3);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
 }
-
+.editor__overlay p { margin: 0; }
+.editor__overlay-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin-bottom: 0.2rem !important;
+}
 .editor__overlay--drag {
-  background: rgba(170, 59, 255, 0.14);
-  border: 2px dashed #aa3bff;
+  background: rgba(170, 59, 255, 0.16);
   color: #e9d5ff;
 }
-
 .editor__overlay-icon {
-  font-size: 2.5rem;
-  display: block;
-  margin-bottom: 0.2rem;
+  display: inline-flex;
+  color: #a855f7;
+  margin-bottom: 0.3rem;
 }
-
+.editor__overlay-icon svg { width: 40px; height: 40px; }
 .editor__overlay-hint {
   font-size: 0.8rem;
   color: #6b7280;
 }
 
-/* ─── Spinner ──────────────────────────────────────────────────────────────────── */
-@keyframes editor-spin {
-  to { transform: rotate(360deg); }
-}
-
+/* ─── Spinner ──────────────────────────────────────────────────────────────── */
+@keyframes editor-spin { to { transform: rotate(360deg); } }
 .editor__spinner {
   width: 40px;
   height: 40px;
@@ -88,67 +216,81 @@
   border-top-color: #aa3bff;
   border-radius: 50%;
   animation: editor-spin 0.7s linear infinite;
-  margin-bottom: 0.5rem;
 }
 
-/* ─── Control panel ──────────────────────────────────────────────────────────── */
+/* ─── Control panel ───────────────────────────────────────────────────────── */
 .editor__panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(170, 59, 255, 0.15);
-  border-radius: 16px;
-  padding: 1.5rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(170, 59, 255, 0.16);
+  border-radius: 18px;
+  padding: 1.5rem 1.35rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.1rem;
   overflow-y: auto;
-  max-height: calc(100vh - 360px);
+  max-height: calc(100vh - 200px);
   scrollbar-width: thin;
   scrollbar-color: rgba(170, 59, 255, 0.3) transparent;
 }
+.editor__panel::-webkit-scrollbar { width: 5px; }
+.editor__panel::-webkit-scrollbar-track { background: transparent; }
+.editor__panel::-webkit-scrollbar-thumb { background: rgba(170, 59, 255, 0.3); border-radius: 3px; }
+.editor__panel::-webkit-scrollbar-thumb:hover { background: rgba(170, 59, 255, 0.55); }
 
-.editor__panel::-webkit-scrollbar {
-  width: 5px;
+.editor__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
-
-.editor__panel::-webkit-scrollbar-track {
-  background: transparent;
+.editor__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-
-.editor__panel::-webkit-scrollbar-thumb {
-  background: rgba(170, 59, 255, 0.3);
-  border-radius: 3px;
-}
-
-.editor__panel::-webkit-scrollbar-thumb:hover {
-  background: rgba(170, 59, 255, 0.55);
-}
-
-.editor__panel-title {
-  font-size: 1rem;
+.editor__section-title {
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #f3f4f6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7c7d8a;
   margin: 0;
 }
+
+.editor__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.editor__reset svg { width: 13px; height: 13px; }
+.editor__reset:hover { color: #d8b4fe; background: rgba(170, 59, 255, 0.1); }
 
 .editor__field {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
 }
-
 .editor__label {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: #d1d5db;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .editor__value {
-  color: #aa3bff;
+  color: #c4b5fd;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Upload button */
@@ -156,45 +298,45 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   width: 100%;
-  padding: 0.45rem 0.9rem;
+  padding: 0.6rem 0.9rem;
   background: rgba(170, 59, 255, 0.12);
   border: 1px solid rgba(170, 59, 255, 0.3);
-  border-radius: 8px;
-  color: #c4b5fd;
+  border-radius: 10px;
+  color: #d8b4fe;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
 }
-
+.editor__upload-btn svg { width: 16px; height: 16px; }
 .editor__upload-btn:hover {
-  background: rgba(170, 59, 255, 0.25);
+  background: rgba(170, 59, 255, 0.22);
   border-color: #aa3bff;
 }
-
-.editor__file-hidden {
-  display: none;
-}
+.editor__upload-btn:active { transform: scale(0.98); }
+.editor__file-hidden { display: none; }
 
 .editor__file-name {
-  font-size: 0.82rem;
-  color: #9ca3af;
+  font-size: 0.8rem;
+  color: #d1d5db;
   word-break: break-all;
-  line-height: 1.4;
+  line-height: 1.45;
+  padding: 0.5rem 0.65rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
 }
-
-.editor__file-dim {
-  color: #6b7280;
-}
+.editor__file-dim { color: #6b7280; }
 
 .editor__error {
-  font-size: 0.82rem;
-  color: #f87171;
-  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  color: #fca5a5;
+  padding: 0.45rem 0.7rem;
   background: rgba(248, 113, 113, 0.08);
-  border-radius: 6px;
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
 /* Slider */
@@ -208,25 +350,29 @@
   outline: none;
   cursor: pointer;
 }
-
 .editor__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: #aa3bff;
-  box-shadow: 0 0 6px rgba(170, 59, 255, 0.7);
+  background: #fff;
+  border: 3px solid #aa3bff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s;
 }
-
-.editor__slider:hover::-webkit-slider-thumb {
-  transform: scale(1.2);
+.editor__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #aa3bff;
+  cursor: pointer;
 }
-
+.editor__slider:hover::-webkit-slider-thumb { transform: scale(1.15); }
 .editor__slider-ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: #4b5563;
 }
 
@@ -234,100 +380,46 @@
 .editor__select {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(170, 59, 255, 0.25);
-  border-radius: 8px;
-  padding: 0.45rem 0.75rem;
-  color: #d1d5db;
-  font-size: 0.9rem;
+  border-radius: 9px;
+  padding: 0.55rem 0.75rem;
+  color: #e5e7eb;
+  font-size: 0.88rem;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-
 .editor__select:focus {
   border-color: #aa3bff;
-  box-shadow: 0 0 0 2px rgba(170, 59, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(170, 59, 255, 0.18);
 }
 
 /* Divider */
 .editor__divider {
-  border: none;
-  border-top: 1px solid rgba(170, 59, 255, 0.12);
-  margin: 0.1rem 0;
+  border-top: 1px solid rgba(170, 59, 255, 0.1);
 }
 
-/* Export actions */
-.editor__actions {
+/* Panel footer */
+.editor__panel-footer {
+  margin-top: auto;
+  padding-top: 0.4rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.7rem;
 }
-
 .editor__export-btn {
   width: 100%;
-  font-size: 0.875rem;
-  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  padding: 0.65rem 1rem;
 }
-
-/* Toggle group */
-.editor__toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.editor__toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-size: 0.85rem;
-  color: #d1d5db;
-  cursor: pointer;
-  user-select: none;
-}
-
-.editor__toggle input[type='checkbox'] {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 1px solid rgba(170, 59, 255, 0.4);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.editor__toggle input[type='checkbox']:checked {
-  background: #aa3bff;
-  border-color: #aa3bff;
-}
-
-.editor__toggle input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 5px;
-  height: 9px;
-  border: 2px solid #fff;
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg);
-}
-
-/* Tip text */
 .editor__tip {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #4b5563;
   margin: 0;
   text-align: center;
   line-height: 1.6;
 }
 
-
-@media (max-width: 860px) {
-  .editor__workspace {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 900px) {
+  .editor__workspace { grid-template-columns: 1fr; }
+  .editor__panel { max-height: none; }
 }

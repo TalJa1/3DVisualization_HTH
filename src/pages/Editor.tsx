@@ -64,74 +64,8 @@ function normalizeGroup(group: THREE.Object3D): THREE.Group {
   return wrapper
 }
 
-// ── G-code toolpath parser ────────────────────────────────────────────────────
-async function parseGcode(file: File): Promise<THREE.Group> {
-  const text = await file.text()
-
-  const travelPts: THREE.Vector3[] = []
-  const extrudePts: THREE.Vector3[] = []
-
-  let x = 0, y = 0, z = 0
-  let e = 0
-  let absolute = true
-
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.split(';')[0].trim()
-    if (!line) continue
-    const parts = line.split(/\s+/)
-    const cmd = parts[0].toUpperCase()
-
-    if (cmd === 'G90') { absolute = true; continue }
-    if (cmd === 'G91') { absolute = false; continue }
-    if (cmd !== 'G0' && cmd !== 'G1') continue
-
-    let nx = x, ny = y, nz = z, ne = e
-    let hasMove = false
-    for (let i = 1; i < parts.length; i++) {
-      const axis = parts[i][0].toUpperCase()
-      const val = parseFloat(parts[i].slice(1))
-      if (Number.isNaN(val)) continue
-      if (axis === 'X') { nx = absolute ? val : x + val; hasMove = true }
-      else if (axis === 'Y') { ny = absolute ? val : y + val; hasMove = true }
-      else if (axis === 'Z') { nz = absolute ? val : z + val; hasMove = true }
-      else if (axis === 'E') { ne = absolute ? val : e + val }
-    }
-    if (!hasMove) { x = nx; y = ny; z = nz; e = ne; continue }
-
-    const isExtruding = ne > e
-    const from = new THREE.Vector3(x, z, -y)
-    const to = new THREE.Vector3(nx, nz, -ny)
-    if (isExtruding) {
-      extrudePts.push(from, to)
-    } else {
-      travelPts.push(from, to)
-    }
-    x = nx; y = ny; z = nz; e = ne
-  }
-
-  if (extrudePts.length === 0 && travelPts.length === 0) {
-    throw new Error('No movement commands (G0/G1) found in G-code file.')
-  }
-
-  const group = new THREE.Group()
-  if (extrudePts.length > 0) {
-    const geo = new THREE.BufferGeometry().setFromPoints(extrudePts)
-    const mat = new THREE.LineBasicMaterial({ color: '#ffaa33' })
-    group.add(new THREE.LineSegments(geo, mat))
-  }
-  if (travelPts.length > 0) {
-    const geo = new THREE.BufferGeometry().setFromPoints(travelPts)
-    const mat = new THREE.LineBasicMaterial({ color: '#4488ff', transparent: true, opacity: 0.25 })
-    group.add(new THREE.LineSegments(geo, mat))
-  }
-  return group
-}
-
 async function load3DModel(file: File): Promise<THREE.Group> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (ext === 'gcode') {
-    return normalizeGroup(await parseGcode(file))
-  }
   const url = URL.createObjectURL(file)
   try {
     if (ext === 'glb' || ext === 'gltf') {
@@ -185,9 +119,38 @@ const DETAIL_LABELS: Record<number, string> = {
   1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Ultra',
 }
 const HEIGHTMAP_EXTS = ['png', 'jpg', 'jpeg', 'webp']
-const MODEL_EXTS     = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply', 'dae', '3ds', 'gcode']
+const MODEL_EXTS     = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply', 'dae', '3ds']
 const ACCEPTED       = [...HEIGHTMAP_EXTS, ...MODEL_EXTS]
 const MAX_BYTES      = 100 * 1024 * 1024
+
+// ── inline icons ────────────────────────────────────────────────────────────
+const Icon = {
+  wireframe: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <path d="M12 3 21 8v8l-9 5-9-5V8z" /><path d="M3 8l9 5 9-5M12 13v8" />
+    </svg>
+  ),
+  rotate: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 4v5h-5" />
+    </svg>
+  ),
+  grid: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+    </svg>
+  ),
+  reset: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" /><path d="M3 3v5h5" />
+    </svg>
+  ),
+  upload: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3" />
+    </svg>
+  ),
+}
 
 // ── component ─────────────────────────────────────────────────────────────────
 export default function Editor() {
@@ -297,13 +260,25 @@ export default function Editor() {
     if (file) handleFile(file)
   }, [handleFile])
 
+  const resetTransform = useCallback(() => {
+    setPosX(0); setPosY(0); setPosZ(0)
+  }, [])
+
   const hasContent = !!(heightmap || model3D)
+  const sourceType = heightmap ? 'Heightmap' : model3D ? '3D Model' : null
 
   return (
     <div className="editor">
       <header className="editor__header">
-        <h1>3D Map Editor</h1>
-        <p>Upload a heightmap image or a 3D model to view and edit it.</p>
+        <div className="editor__heading">
+          <span className="editor__eyebrow">Workspace</span>
+          <h1>3D Map Editor</h1>
+          <p>Import a heightmap or 3D model, then fine-tune its geometry, materials, and lighting.</p>
+        </div>
+        <div className="editor__status">
+          <span className={`editor__status-dot${hasContent ? ' editor__status-dot--live' : ''}`} />
+          {hasContent ? `${sourceType} loaded` : 'No model loaded'}
+        </div>
       </header>
 
       <div className="editor__workspace">
@@ -332,42 +307,84 @@ export default function Editor() {
             offsetZ={posZ}
           />
 
+          {/* Floating viewport toolbar */}
+          {hasContent && (
+            <div className="editor__viewbar">
+              <button
+                type="button"
+                className={`editor__viewbtn${wireframe ? ' editor__viewbtn--on' : ''}`}
+                onClick={() => setWireframe(v => !v)}
+                title="Wireframe"
+                aria-pressed={wireframe}
+              >
+                {Icon.wireframe}
+              </button>
+              <button
+                type="button"
+                className={`editor__viewbtn${autoRotate ? ' editor__viewbtn--on' : ''}`}
+                onClick={() => setAutoRotate(v => !v)}
+                title="Auto-rotate"
+                aria-pressed={autoRotate}
+              >
+                {Icon.rotate}
+              </button>
+              <button
+                type="button"
+                className={`editor__viewbtn${showGrid ? ' editor__viewbtn--on' : ''}`}
+                onClick={() => setShowGrid(v => !v)}
+                title="Show grid"
+                aria-pressed={showGrid}
+              >
+                {Icon.grid}
+              </button>
+            </div>
+          )}
+
+          {/* Bottom-left info HUD */}
+          {hasContent && fileName && (
+            <div className="editor__hud">
+              <span className="editor__hud-type">{sourceType}</span>
+              <span className="editor__hud-name">{fileName}</span>
+              {heightmap && (
+                <span className="editor__hud-dim">{heightmap.width}×{heightmap.height}px</span>
+              )}
+            </div>
+          )}
+
           {!hasContent && !loading && !isDragOver && (
             <div className="editor__overlay">
-              <span className="editor__overlay-icon">🗺️</span>
-              <p>Drop a file here to get started</p>
-              <p className="editor__overlay-hint">
-                Heightmap: PNG · JPG · WebP
-              </p>
-              <p className="editor__overlay-hint">
-                3D Model: GLB · GLTF · OBJ · FBX · STL · PLY · DAE · 3DS · G-code
-              </p>
+              <div className="editor__overlay-card">
+                <span className="editor__overlay-icon">{Icon.upload}</span>
+                <p className="editor__overlay-title">Drop a file to get started</p>
+                <p className="editor__overlay-hint">Heightmap — PNG · JPG · WebP</p>
+                <p className="editor__overlay-hint">3D Model — GLB · GLTF · OBJ · FBX · STL · PLY · DAE · 3DS</p>
+              </div>
             </div>
           )}
 
           {loading && (
             <div className="editor__overlay">
               <div className="editor__spinner" />
-              <p>Loading…</p>
+              <p>Loading model…</p>
             </div>
           )}
 
           {isDragOver && (
             <div className="editor__overlay editor__overlay--drag">
-              <span className="editor__overlay-icon">📂</span>
-              <p>Drop to load</p>
+              <span className="editor__overlay-icon">{Icon.upload}</span>
+              <p className="editor__overlay-title">Release to load</p>
             </div>
           )}
         </div>
 
         {/* ── control panel ── */}
         <aside className="editor__panel">
-          <h2 className="editor__panel-title">Controls</h2>
-
-          <div className="editor__field">
-            <span className="editor__label">File</span>
+          {/* Source */}
+          <section className="editor__section">
+            <h3 className="editor__section-title">Source</h3>
             <label className="editor__upload-btn" htmlFor="dem-upload">
-              ⬆ Choose file
+              {Icon.upload}
+              <span>Choose file</span>
               <input
                 id="dem-upload"
                 type="file"
@@ -378,165 +395,132 @@ export default function Editor() {
             </label>
             {fileName && (
               <span className="editor__file-name">
-                📄 {fileName}
+                {fileName}
                 {heightmap && (
-                  <span className="editor__file-dim"> ({heightmap.width}×{heightmap.height})</span>
+                  <span className="editor__file-dim"> · {heightmap.width}×{heightmap.height}</span>
                 )}
               </span>
             )}
             {error && <span className="editor__error" role="alert">{error}</span>}
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="height-scale" className="editor__label">
-              Height Scale
-              <span className="editor__value">{heightScale.toFixed(1)}×</span>
-            </label>
-            <input
-              id="height-scale"
-              type="range" min="0.1" max="5" step="0.1"
-              value={heightScale}
-              onChange={e => setHeightScale(Number(e.target.value))}
-              className="editor__slider"
-            />
-            <div className="editor__slider-ticks"><span>0.1×</span><span>5×</span></div>
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="poly-detail" className="editor__label">
-              Polygon Detail
-              <span className="editor__value">{DETAIL_LABELS[polygonDetail]}</span>
-            </label>
-            <input
-              id="poly-detail"
-              type="range" min="1" max="5" step="1"
-              value={polygonDetail}
-              onChange={e => setPolygonDetail(Number(e.target.value))}
-              className="editor__slider"
-            />
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="color-scheme" className="editor__label">Color Scheme</label>
-            <select
-              id="color-scheme"
-              value={colorScheme}
-              onChange={e => setColorScheme(e.target.value)}
-              className="editor__select"
-            >
-              <option value="terrain">Terrain (default)</option>
-              <option value="greyscale">Greyscale</option>
-              <option value="heatmap">Heatmap</option>
-              <option value="ocean">Ocean / Topo</option>
-            </select>
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="light-intensity" className="editor__label">
-              Light Intensity
-              <span className="editor__value">{lightIntensity.toFixed(1)}</span>
-            </label>
-            <input
-              id="light-intensity"
-              type="range" min="0" max="3" step="0.1"
-              value={lightIntensity}
-              onChange={e => setLightIntensity(Number(e.target.value))}
-              className="editor__slider"
-            />
-            <div className="editor__slider-ticks"><span>0</span><span>3</span></div>
-          </div>
-
-          <div className="editor__field">
-            <span className="editor__label">View Options</span>
-            <div className="editor__toggles">
-              <label className="editor__toggle">
-                <input
-                  type="checkbox"
-                  checked={wireframe}
-                  onChange={e => setWireframe(e.target.checked)}
-                />
-                <span>Wireframe</span>
-              </label>
-              <label className="editor__toggle">
-                <input
-                  type="checkbox"
-                  checked={autoRotate}
-                  onChange={e => setAutoRotate(e.target.checked)}
-                />
-                <span>Auto-rotate</span>
-              </label>
-              <label className="editor__toggle">
-                <input
-                  type="checkbox"
-                  checked={showGrid}
-                  onChange={e => setShowGrid(e.target.checked)}
-                />
-                <span>Show Grid</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="pos-x" className="editor__label">
-              Position X
-              <span className="editor__value">{posX.toFixed(1)}</span>
-            </label>
-            <input
-              id="pos-x"
-              type="range" min="-10" max="10" step="0.1"
-              value={posX}
-              onChange={e => setPosX(Number(e.target.value))}
-              className="editor__slider"
-            />
-            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="pos-y" className="editor__label">
-              Position Y
-              <span className="editor__value">{posY.toFixed(1)}</span>
-            </label>
-            <input
-              id="pos-y"
-              type="range" min="-10" max="10" step="0.1"
-              value={posY}
-              onChange={e => setPosY(Number(e.target.value))}
-              className="editor__slider"
-            />
-            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
-          </div>
-
-          <div className="editor__field">
-            <label htmlFor="pos-z" className="editor__label">
-              Position Z
-              <span className="editor__value">{posZ.toFixed(1)}</span>
-            </label>
-            <input
-              id="pos-z"
-              type="range" min="-10" max="10" step="0.1"
-              value={posZ}
-              onChange={e => setPosZ(Number(e.target.value))}
-              className="editor__slider"
-            />
-            <div className="editor__slider-ticks"><span>-10</span><span>10</span></div>
-          </div>
+          </section>
 
           <div className="editor__divider" />
 
-          <div className="editor__actions">
+          {/* Geometry */}
+          <section className="editor__section">
+            <h3 className="editor__section-title">Geometry</h3>
+            <div className="editor__field">
+              <label htmlFor="height-scale" className="editor__label">
+                Height Scale
+                <span className="editor__value">{heightScale.toFixed(1)}×</span>
+              </label>
+              <input
+                id="height-scale"
+                type="range" min="0.1" max="5" step="0.1"
+                value={heightScale}
+                onChange={e => setHeightScale(Number(e.target.value))}
+                className="editor__slider"
+              />
+              <div className="editor__slider-ticks"><span>0.1×</span><span>5×</span></div>
+            </div>
+
+            <div className="editor__field">
+              <label htmlFor="poly-detail" className="editor__label">
+                Polygon Detail
+                <span className="editor__value">{DETAIL_LABELS[polygonDetail]}</span>
+              </label>
+              <input
+                id="poly-detail"
+                type="range" min="1" max="5" step="1"
+                value={polygonDetail}
+                onChange={e => setPolygonDetail(Number(e.target.value))}
+                className="editor__slider"
+              />
+            </div>
+          </section>
+
+          <div className="editor__divider" />
+
+          {/* Appearance */}
+          <section className="editor__section">
+            <h3 className="editor__section-title">Appearance</h3>
+            <div className="editor__field">
+              <label htmlFor="color-scheme" className="editor__label">Color Scheme</label>
+              <select
+                id="color-scheme"
+                value={colorScheme}
+                onChange={e => setColorScheme(e.target.value)}
+                className="editor__select"
+              >
+                <option value="terrain">Terrain (default)</option>
+                <option value="greyscale">Greyscale</option>
+                <option value="heatmap">Heatmap</option>
+                <option value="ocean">Ocean / Topo</option>
+              </select>
+            </div>
+
+            <div className="editor__field">
+              <label htmlFor="light-intensity" className="editor__label">
+                Light Intensity
+                <span className="editor__value">{lightIntensity.toFixed(1)}</span>
+              </label>
+              <input
+                id="light-intensity"
+                type="range" min="0" max="3" step="0.1"
+                value={lightIntensity}
+                onChange={e => setLightIntensity(Number(e.target.value))}
+                className="editor__slider"
+              />
+              <div className="editor__slider-ticks"><span>0</span><span>3</span></div>
+            </div>
+          </section>
+
+          <div className="editor__divider" />
+
+          {/* Transform */}
+          <section className="editor__section">
+            <div className="editor__section-head">
+              <h3 className="editor__section-title">Transform</h3>
+              <button type="button" className="editor__reset" onClick={resetTransform} title="Reset position">
+                {Icon.reset}
+                <span>Reset</span>
+              </button>
+            </div>
+
+            <div className="editor__field">
+              <label htmlFor="pos-x" className="editor__label">
+                Position X<span className="editor__value">{posX.toFixed(1)}</span>
+              </label>
+              <input id="pos-x" type="range" min="-10" max="10" step="0.1"
+                value={posX} onChange={e => setPosX(Number(e.target.value))} className="editor__slider" />
+            </div>
+            <div className="editor__field">
+              <label htmlFor="pos-y" className="editor__label">
+                Position Y<span className="editor__value">{posY.toFixed(1)}</span>
+              </label>
+              <input id="pos-y" type="range" min="-10" max="10" step="0.1"
+                value={posY} onChange={e => setPosY(Number(e.target.value))} className="editor__slider" />
+            </div>
+            <div className="editor__field">
+              <label htmlFor="pos-z" className="editor__label">
+                Position Z<span className="editor__value">{posZ.toFixed(1)}</span>
+              </label>
+              <input id="pos-z" type="range" min="-10" max="10" step="0.1"
+                value={posZ} onChange={e => setPosZ(Number(e.target.value))} className="editor__slider" />
+            </div>
+          </section>
+
+          <div className="editor__panel-footer">
             <button
               type="button"
               className="btn btn--primary editor__export-btn"
               onClick={() => navigate('/export')}
               disabled={!hasContent}
             >
-              Go to Export →
+              Continue to Export →
             </button>
+            <p className="editor__tip">Orbit: drag · Zoom: scroll · Pan: right-click drag</p>
           </div>
-
-          <p className="editor__tip">
-            Orbit: drag · Zoom: scroll · Pan: right-click drag
-          </p>
         </aside>
       </div>
     </div>

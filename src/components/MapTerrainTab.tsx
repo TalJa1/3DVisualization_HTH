@@ -1,5 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import 'leaflet-draw/dist/leaflet.draw.css'
+import './MapTerrainTab.css'
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet-draw'
@@ -20,12 +21,13 @@ L.Icon.Default.mergeOptions({
 export type { BoundingBox }
 
 const GRID = 32
+const RECT_COLOR = '#aa3bff'
 
 type Resolution = '30m' | '10m'
 
-const RESOLUTION_OPTIONS: { value: Resolution; label: string }[] = [
-  { value: '30m', label: '30m (global SRTM)' },
-  { value: '10m', label: '10m (US only)' },
+const RESOLUTION_OPTIONS: { value: Resolution; label: string; sub: string }[] = [
+  { value: '30m', label: '30m', sub: 'Global · SRTM' },
+  { value: '10m', label: '10m', sub: 'US only · NED' },
 ]
 
 function resolutionDataset(r: Resolution) {
@@ -59,8 +61,9 @@ export default function MapTerrainTab({ onTerrainCapture }: Props) {
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return
 
-    const map = L.map(mapDivRef.current, { center: mapCenter, zoom: mapZoom })
+    const map = L.map(mapDivRef.current, { center: mapCenter, zoom: mapZoom, zoomControl: false })
     mapRef.current = map
+    L.control.zoom({ position: 'bottomright' }).addTo(map)
     setTimeout(() => map.invalidateSize(), 0)
 
     // Patch leaflet-draw bug: readableArea references an undefined `type` variable
@@ -90,7 +93,7 @@ export default function MapTerrainTab({ onTerrainCapture }: Props) {
     if (savedBbox) {
       const rect = L.rectangle(
         [[savedBbox.south, savedBbox.west], [savedBbox.north, savedBbox.east]],
-        { color: '#4f8ef7', weight: 2 },
+        { color: RECT_COLOR, weight: 2 },
       )
       drawnItems.addLayer(rect)
     }
@@ -100,7 +103,7 @@ export default function MapTerrainTab({ onTerrainCapture }: Props) {
     }).Draw({
       position: 'topleft',
       draw: {
-        rectangle: { shapeOptions: { color: '#4f8ef7', weight: 2 }, showArea: false },
+        rectangle: { shapeOptions: { color: RECT_COLOR, weight: 2 }, showArea: false },
         polyline: false,
         polygon: false,
         circle: false,
@@ -217,252 +220,133 @@ export default function MapTerrainTab({ onTerrainCapture }: Props) {
   }
 
   const coord = (n: number) => n.toFixed(5)
+  const batches = Math.ceil((GRID * GRID) / 100)
 
   return (
-    <div style={styles.root}>
-      <div ref={mapDivRef} style={styles.map} />
+    <div className="mapterrain">
+      <div className="mapterrain__map-wrap">
+        <div ref={mapDivRef} className="mapterrain__map" />
+        {!savedBbox && (
+          <div className="mapterrain__map-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="4 3" />
+            </svg>
+            Use the rectangle tool (top-left) to select a region
+          </div>
+        )}
+      </div>
 
-      <aside style={styles.sidebar}>
-        <h2 style={styles.heading}>Map Terrain</h2>
-        <p style={styles.hint}>
-          Use the rectangle tool on the map to select a zone, then capture its
-          elevation data into the 3D editor.
-        </p>
+      <aside className="mapterrain__sidebar">
+        <header className="mapterrain__head">
+          <span className="mapterrain__eyebrow">Source · Live world map</span>
+          <h2 className="mapterrain__title">Map Terrain</h2>
+          <p className="mapterrain__intro">
+            Draw a box over any region, then capture its real elevation data into the 3D editor.
+          </p>
+        </header>
 
         {/* Search */}
-        <section style={styles.section}>
-          <h3 style={styles.sectionTitle}>Search Location</h3>
-          <form onSubmit={handleSearch} style={styles.searchForm}>
+        <section className="mapterrain__section">
+          <h3 className="mapterrain__section-title">Search location</h3>
+          <form onSubmit={handleSearch} className="mapterrain__search">
             <input
               type="text"
               placeholder="e.g. Ho Chi Minh City"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
+              className="mapterrain__search-input"
               disabled={searchLoading}
             />
-            <button type="submit" style={styles.searchBtn} disabled={searchLoading || !searchQuery.trim()}>
-              {searchLoading ? '…' : '→'}
+            <button
+              type="submit"
+              className="mapterrain__search-btn"
+              disabled={searchLoading || !searchQuery.trim()}
+              aria-label="Search"
+            >
+              {searchLoading ? (
+                <span className="mapterrain__spinner mapterrain__spinner--sm" />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+                </svg>
+              )}
             </button>
           </form>
-          {searchError && <p style={styles.errorMsg}>{searchError}</p>}
+          {searchError && <p className="mapterrain__error">{searchError}</p>}
         </section>
 
         {/* Selected area */}
-        <section style={styles.section}>
-          <h3 style={styles.sectionTitle}>Selected Area</h3>
+        <section className="mapterrain__section">
+          <h3 className="mapterrain__section-title">
+            Selected area
+            {savedBbox && <span className="mapterrain__badge">Ready</span>}
+          </h3>
           {savedBbox ? (
-            <table style={styles.coordTable}>
-              <tbody>
-                {(
-                  [
-                    ['North', savedBbox.north],
-                    ['South', savedBbox.south],
-                    ['East',  savedBbox.east],
-                    ['West',  savedBbox.west],
-                  ] as [string, number][]
-                ).map(([label, val]) => (
-                  <tr key={label}>
-                    <td style={styles.coordLabel}>{label}</td>
-                    <td style={styles.coordValue}>{coord(val)}°</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="mapterrain__coords">
+              {(
+                [
+                  ['N', savedBbox.north],
+                  ['S', savedBbox.south],
+                  ['E', savedBbox.east],
+                  ['W', savedBbox.west],
+                ] as [string, number][]
+              ).map(([label, val]) => (
+                <div key={label} className="mapterrain__coord">
+                  <span className="mapterrain__coord-label">{label}</span>
+                  <span className="mapterrain__coord-value">{coord(val)}°</span>
+                </div>
+              ))}
+            </div>
           ) : (
-            <p style={styles.emptyHint}>No area selected yet.</p>
+            <p className="mapterrain__empty">No area selected yet — draw a rectangle on the map.</p>
           )}
         </section>
 
         {/* DEM resolution */}
-        <section style={styles.section}>
-          <h3 style={styles.sectionTitle}>DEM Resolution</h3>
-          <select
-            value={resolution}
-            onChange={(e) => setResolution(e.target.value as Resolution)}
-            style={styles.select}
-            disabled={loading}
-          >
+        <section className="mapterrain__section">
+          <h3 className="mapterrain__section-title">DEM resolution</h3>
+          <div className="mapterrain__seg" role="group" aria-label="DEM resolution">
             {RESOLUTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <button
+                key={o.value}
+                type="button"
+                className={`mapterrain__seg-btn${resolution === o.value ? ' mapterrain__seg-btn--active' : ''}`}
+                onClick={() => setResolution(o.value)}
+                disabled={loading}
+              >
+                <strong>{o.label}</strong>
+                <span>{o.sub}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </section>
 
-        <button
-          style={{
-            ...styles.captureBtn,
-            ...((!savedBbox || loading) ? styles.captureBtnDisabled : {}),
-          }}
-          disabled={!savedBbox || loading}
-          onClick={handleCapture}
-        >
-          {loading ? 'Fetching elevation…' : 'Capture Terrain → 3D Editor'}
-        </button>
+        <div className="mapterrain__footer">
+          <button
+            className="mapterrain__capture"
+            disabled={!savedBbox || loading}
+            onClick={handleCapture}
+          >
+            {loading ? (
+              <>
+                <span className="mapterrain__spinner" />
+                Fetching elevation…
+              </>
+            ) : (
+              'Capture Terrain → 3D Editor'
+            )}
+          </button>
 
-        {loading && (
-          <p style={styles.loadingNote}>
-            Sampling {GRID}×{GRID} = {GRID * GRID} points across{' '}
-            {Math.ceil((GRID * GRID) / 100)} batches — pacing requests to
-            stay within the free API rate limit (~{Math.ceil((GRID * GRID) / 100) * 1.1 | 0}–{Math.ceil((GRID * GRID) / 100) * 1.2 | 0}s).
-          </p>
-        )}
+          {loading && (
+            <p className="mapterrain__note">
+              Sampling {GRID}×{GRID} = {GRID * GRID} points across {batches} batches,
+              paced to respect the free API rate limit (~{Math.round(batches * 1.1)}–{Math.round(batches * 1.2)}s).
+            </p>
+          )}
 
-        {error && <p style={styles.errorMsg}>Error: {error}</p>}
+          {error && <p className="mapterrain__error">Error: {error}</p>}
+        </div>
       </aside>
     </div>
   )
 }
-
-// ── inline styles ─────────────────────────────────────────────────────────────
-const styles = {
-  root: {
-    display: 'flex',
-    width: '100%',
-    height: 'calc(100vh - 68px)',
-    minHeight: 0,
-    fontFamily: 'inherit',
-  } as React.CSSProperties,
-
-  map: {
-    flex: 1,
-    minWidth: 0,
-    height: 'calc(100vh - 68px)',
-  } as React.CSSProperties,
-
-  sidebar: {
-    width: 280,
-    flexShrink: 0,
-    background: '#1a1a2e',
-    color: '#e0e0e0',
-    padding: '24px 20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    overflowY: 'auto',
-  } as React.CSSProperties,
-
-  heading: {
-    margin: 0,
-    fontSize: 20,
-    fontWeight: 700,
-    color: '#ffffff',
-  } as React.CSSProperties,
-
-  hint: {
-    margin: 0,
-    fontSize: 13,
-    color: '#9090b0',
-    lineHeight: 1.5,
-  } as React.CSSProperties,
-
-  section: {
-    marginTop: 16,
-  } as React.CSSProperties,
-
-  sectionTitle: {
-    margin: '0 0 8px',
-    fontSize: 13,
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.07em',
-    color: '#7878a8',
-  } as React.CSSProperties,
-
-  searchForm: {
-    display: 'flex',
-    gap: 6,
-  } as React.CSSProperties,
-
-  searchInput: {
-    flex: 1,
-    padding: '7px 10px',
-    background: '#12122a',
-    border: '1px solid #333360',
-    borderRadius: 6,
-    color: '#e0e0e0',
-    fontSize: 13,
-    outline: 'none',
-  } as React.CSSProperties,
-
-  searchBtn: {
-    padding: '7px 12px',
-    background: '#4f8ef7',
-    border: 'none',
-    borderRadius: 6,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: 'pointer',
-    flexShrink: 0,
-  } as React.CSSProperties,
-
-  coordTable: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    fontSize: 14,
-  } as React.CSSProperties,
-
-  coordLabel: {
-    padding: '3px 0',
-    color: '#9090b0',
-    width: 50,
-  } as React.CSSProperties,
-
-  coordValue: {
-    padding: '3px 0',
-    fontFamily: 'monospace',
-    color: '#d0d0f0',
-  } as React.CSSProperties,
-
-  emptyHint: {
-    margin: 0,
-    fontSize: 13,
-    color: '#555575',
-    fontStyle: 'italic',
-  } as React.CSSProperties,
-
-  select: {
-    width: '100%',
-    padding: '8px 10px',
-    background: '#12122a',
-    border: '1px solid #333360',
-    borderRadius: 6,
-    color: '#e0e0e0',
-    fontSize: 13,
-    cursor: 'pointer',
-  } as React.CSSProperties,
-
-  captureBtn: {
-    marginTop: 20,
-    width: '100%',
-    padding: '11px 0',
-    background: '#4f8ef7',
-    border: 'none',
-    borderRadius: 8,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'opacity 0.15s',
-  } as React.CSSProperties,
-
-  captureBtnDisabled: {
-    opacity: 0.4,
-    cursor: 'not-allowed',
-  } as React.CSSProperties,
-
-  loadingNote: {
-    margin: 0,
-    fontSize: 12,
-    color: '#7878a8',
-    lineHeight: 1.4,
-  } as React.CSSProperties,
-
-  errorMsg: {
-    margin: 0,
-    fontSize: 13,
-    color: '#f07070',
-    lineHeight: 1.4,
-  } as React.CSSProperties,
-} as const
