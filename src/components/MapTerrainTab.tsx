@@ -4,7 +4,7 @@ import './MapTerrainTab.css'
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet-draw'
-import { useModel } from '../context/ModelContext'
+import { useModel, CAPTURE_GRID } from '../context/ModelContext'
 import type { BoundingBox } from '../context/ModelContext'
 
 // leaflet's default marker icons break with bundlers — fix icon paths
@@ -20,7 +20,7 @@ L.Icon.Default.mergeOptions({
 
 export type { BoundingBox }
 
-const GRID = 32
+const GRID = CAPTURE_GRID
 const RECT_COLOR = '#aa3bff'
 
 type Resolution = '30m' | '10m'

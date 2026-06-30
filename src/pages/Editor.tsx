@@ -9,8 +9,7 @@ import { PLYLoader } from 'three/addons/loaders/PLYLoader.js'
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js'
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js'
 import TerrainScene from '../components/TerrainScene'
-import { useModel } from '../context/ModelContext'
-import { buildTerrainGeometry, getElevationColor, addSolidBase } from '../utils/terrainToMesh'
+import { useModel, CAPTURE_GRID } from '../context/ModelContext'
 import './Editor.css'
 
 // ── heightmap parser ──────────────────────────────────────────────────────────
@@ -165,55 +164,6 @@ export default function Editor() {
     terrainData, setTerrainData,
   } = useModel()
 
-  useEffect(() => {
-    if (!terrainData) return
-
-    const { data } = terrainData
-    const GRID = 32
-    const geometry = buildTerrainGeometry(data, GRID, 0.005)
-
-    // compute elevation range for colour mapping
-    let minElev = Infinity
-    let maxElev = -Infinity
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] < minElev) minElev = data[i]
-      if (data[i] > maxElev) maxElev = data[i]
-    }
-
-    // apply vertex colours
-    const count = geometry.attributes.position.count
-    const colors = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      const elev = data[i] ?? 0
-      const col = getElevationColor(elev, minElev, maxElev)
-      colors[i * 3]     = col.r
-      colors[i * 3 + 1] = col.g
-      colors[i * 3 + 2] = col.b
-    }
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-    // Add side walls + bottom cap so the mesh is a printable solid
-    const solid = addSolidBase(geometry, GRID - 1)
-    geometry.dispose()
-
-    const material = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      roughness: 0.85,
-      metalness: 0.05,
-      side: THREE.DoubleSide,
-    })
-    const mesh = new THREE.Mesh(solid, material)
-    const group = normalizeGroup(mesh)
-
-    // Lift so the terrain bottom sits exactly on the grid plane (Y=0)
-    const bbox = new THREE.Box3().setFromObject(group)
-    group.position.y -= bbox.min.y
-
-    setHeightmap(null)
-    setModel3D(group)
-    setTerrainData(null)
-  }, [terrainData, setHeightmap, setModel3D, setTerrainData])
-
   const [fileName,      setFileName]      = useState<string | null>(null)
   const [error,         setError]         = useState<string | null>(null)
   const [loading,       setLoading]       = useState(false)
@@ -225,6 +175,35 @@ export default function Editor() {
   const [posX, setPosX] = useState(0)
   const [posY, setPosY] = useState(0)
   const [posZ, setPosZ] = useState(0)
+
+  // Every new file/capture starts from the same default view config — settings
+  // tuned for the previous model should never silently carry over to the next one.
+  const resetViewConfig = useCallback(() => {
+    setHeightScale(1)
+    setPolygonDetail(1)
+    setColorScheme('terrain')
+    setWireframe(false)
+    setAutoRotate(false)
+    setShowGrid(true)
+    setLightIntensity(1.6)
+    setPosX(0)
+    setPosY(0)
+    setPosZ(0)
+  }, [setHeightScale, setPolygonDetail, setColorScheme])
+
+  // Route captured map terrain through the same reactive heightmap pipeline as
+  // PNG uploads, so Height Scale / Color Scheme / Polygon Detail all apply live —
+  // previously this baked a static mesh at a fixed scale, disconnected from the controls.
+  useEffect(() => {
+    if (!terrainData) return
+    const { data, bbox } = terrainData
+    const label = `Map capture — ${bbox.north.toFixed(3)}°N, ${bbox.west.toFixed(3)}°E`
+    setModel3D(null)
+    setHeightmap({ data, width: CAPTURE_GRID, height: CAPTURE_GRID, fileName: label })
+    setFileName(label)
+    resetViewConfig()
+    setTerrainData(null)
+  }, [terrainData, setHeightmap, setModel3D, setTerrainData, resetViewConfig])
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -246,12 +225,13 @@ export default function Editor() {
         setHeightmap(null)
       }
       setFileName(file.name)
+      resetViewConfig()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load file.')
     } finally {
       setLoading(false)
     }
-  }, [setHeightmap, setModel3D])
+  }, [setHeightmap, setModel3D, resetViewConfig])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()

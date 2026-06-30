@@ -2,6 +2,10 @@ import { createContext, useContext, useState, useRef } from 'react'
 import type { ReactNode, MutableRefObject } from 'react'
 import * as THREE from 'three'
 
+// Grid resolution used when sampling elevation for a map-terrain capture.
+// Shared by MapTerrainTab (sampling) and Editor (consuming the resulting heightmap).
+export const CAPTURE_GRID = 32
+
 export interface HeightmapState {
   data: Float32Array
   width: number
@@ -50,7 +54,7 @@ export function ModelProvider({ children }: { children: ReactNode }) {
   const [heightmap,     setHeightmap]     = useState<HeightmapState | null>(null)
   const [model3D,       setModel3D]       = useState<THREE.Group | null>(null)
   const [heightScale,   setHeightScale]   = useState(1)
-  const [polygonDetail, setPolygonDetail] = useState(3)
+  const [polygonDetail, setPolygonDetail] = useState(1)
   const [colorScheme,   setColorScheme]   = useState('terrain')
   const [terrainData,   setTerrainData]   = useState<TerrainCapture | null>(null)
   const [mapCenter,     setMapCenter]     = useState<[number, number]>([20, 0])

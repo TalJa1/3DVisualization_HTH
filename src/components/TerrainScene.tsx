@@ -10,6 +10,31 @@ const DETAIL_SEGMENTS: Record<number, number> = {
   1: 32, 2: 64, 3: 128, 4: 192, 5: 256,
 }
 
+// ── bilinear height sampling ──────────────────────────────────────────────────
+// Nearest-neighbor lookup leaves flat plateaus with hard steps wherever the mesh
+// has more vertices than the source grid has samples (e.g. a 32×32 terrain capture
+// driving a 128+ segment mesh). Bilinear blending between the four surrounding
+// samples removes that terracing and gives a continuous, naturally-sloped surface.
+function sampleBilinear(data: Float32Array, width: number, height: number, u: number, v: number): number {
+  const x = Math.max(0, Math.min(u, 1)) * (width - 1)
+  const y = Math.max(0, Math.min(v, 1)) * (height - 1)
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+  const x1 = Math.min(x0 + 1, width - 1)
+  const y1 = Math.min(y0 + 1, height - 1)
+  const fx = x - x0
+  const fy = y - y0
+
+  const h00 = data[y0 * width + x0] ?? 0
+  const h10 = data[y0 * width + x1] ?? 0
+  const h01 = data[y1 * width + x0] ?? 0
+  const h11 = data[y1 * width + x1] ?? 0
+
+  const hTop = h00 + (h10 - h00) * fx
+  const hBottom = h01 + (h11 - h01) * fx
+  return hTop + (hBottom - hTop) * fy
+}
+
 // ── colour scheme helper ──────────────────────────────────────────────────────
 function getVertexColor(t: number, scheme: string): [number, number, number] {
   const c = Math.max(0, Math.min(1, t))
@@ -68,9 +93,7 @@ function TerrainMesh({
       const z = pos.getZ(i)
       const u = (x + 5) / 10
       const v = (z + 5) / 10
-      const px = Math.min(Math.floor(u * (mapWidth - 1)), mapWidth - 1)
-      const py = Math.min(Math.floor(v * (mapHeight - 1)), mapHeight - 1)
-      const h = heightmapData[py * mapWidth + px] ?? 0
+      const h = sampleBilinear(heightmapData, mapWidth, mapHeight, u, v)
       rawHeights[i] = h
       if (h < minH) minH = h
       if (h > maxH) maxH = h
