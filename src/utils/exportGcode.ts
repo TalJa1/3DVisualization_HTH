@@ -307,6 +307,7 @@ export function generateGcode(geometry: THREE.BufferGeometry, rawSettings: Gcode
   lines.push('')
 
   // ── Start G-code (Kobra X) ─────────────────────────────────────────────────
+  lines.push('G21')
   lines.push('G90')
   lines.push('M82')
   lines.push(`M104 S${nozzleTemp}`)
