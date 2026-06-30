@@ -64,8 +64,74 @@ function normalizeGroup(group: THREE.Object3D): THREE.Group {
   return wrapper
 }
 
+// ── G-code toolpath parser ────────────────────────────────────────────────────
+async function parseGcode(file: File): Promise<THREE.Group> {
+  const text = await file.text()
+
+  const travelPts: THREE.Vector3[] = []
+  const extrudePts: THREE.Vector3[] = []
+
+  let x = 0, y = 0, z = 0
+  let e = 0
+  let absolute = true
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.split(';')[0].trim()
+    if (!line) continue
+    const parts = line.split(/\s+/)
+    const cmd = parts[0].toUpperCase()
+
+    if (cmd === 'G90') { absolute = true; continue }
+    if (cmd === 'G91') { absolute = false; continue }
+    if (cmd !== 'G0' && cmd !== 'G1') continue
+
+    let nx = x, ny = y, nz = z, ne = e
+    let hasMove = false
+    for (let i = 1; i < parts.length; i++) {
+      const axis = parts[i][0].toUpperCase()
+      const val = parseFloat(parts[i].slice(1))
+      if (Number.isNaN(val)) continue
+      if (axis === 'X') { nx = absolute ? val : x + val; hasMove = true }
+      else if (axis === 'Y') { ny = absolute ? val : y + val; hasMove = true }
+      else if (axis === 'Z') { nz = absolute ? val : z + val; hasMove = true }
+      else if (axis === 'E') { ne = absolute ? val : e + val }
+    }
+    if (!hasMove) { x = nx; y = ny; z = nz; e = ne; continue }
+
+    const isExtruding = ne > e
+    const from = new THREE.Vector3(x, z, -y)
+    const to = new THREE.Vector3(nx, nz, -ny)
+    if (isExtruding) {
+      extrudePts.push(from, to)
+    } else {
+      travelPts.push(from, to)
+    }
+    x = nx; y = ny; z = nz; e = ne
+  }
+
+  if (extrudePts.length === 0 && travelPts.length === 0) {
+    throw new Error('No movement commands (G0/G1) found in G-code file.')
+  }
+
+  const group = new THREE.Group()
+  if (extrudePts.length > 0) {
+    const geo = new THREE.BufferGeometry().setFromPoints(extrudePts)
+    const mat = new THREE.LineBasicMaterial({ color: '#ffaa33' })
+    group.add(new THREE.LineSegments(geo, mat))
+  }
+  if (travelPts.length > 0) {
+    const geo = new THREE.BufferGeometry().setFromPoints(travelPts)
+    const mat = new THREE.LineBasicMaterial({ color: '#4488ff', transparent: true, opacity: 0.25 })
+    group.add(new THREE.LineSegments(geo, mat))
+  }
+  return group
+}
+
 async function load3DModel(file: File): Promise<THREE.Group> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'gcode') {
+    return normalizeGroup(await parseGcode(file))
+  }
   const url = URL.createObjectURL(file)
   try {
     if (ext === 'glb' || ext === 'gltf') {
@@ -119,7 +185,7 @@ const DETAIL_LABELS: Record<number, string> = {
   1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Ultra',
 }
 const HEIGHTMAP_EXTS = ['png', 'jpg', 'jpeg', 'webp']
-const MODEL_EXTS     = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply', 'dae', '3ds']
+const MODEL_EXTS     = ['glb', 'gltf', 'obj', 'fbx', 'stl', 'ply', 'dae', '3ds', 'gcode']
 const ACCEPTED       = [...HEIGHTMAP_EXTS, ...MODEL_EXTS]
 const MAX_BYTES      = 100 * 1024 * 1024
 
@@ -274,7 +340,7 @@ export default function Editor() {
                 Heightmap: PNG · JPG · WebP
               </p>
               <p className="editor__overlay-hint">
-                3D Model: GLB · GLTF · OBJ · FBX · STL · PLY · DAE · 3DS
+                3D Model: GLB · GLTF · OBJ · FBX · STL · PLY · DAE · 3DS · G-code
               </p>
             </div>
           )}
