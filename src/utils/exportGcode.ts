@@ -102,6 +102,108 @@ function sampleHeight(grid: Float32Array, gridRes: number, fx: number, fz: numbe
        + grid[(iz0 + 1) * gridRes + ix0 + 1] * tx * tz
 }
 
+// ── Mask contour tracing (so layer outlines follow the real terrain shape) ──
+interface Pt { x: number; y: number }
+
+function computeDistanceField(active: Uint8Array, cellRes: number): Int32Array {
+  const dist = new Int32Array(cellRes * cellRes).fill(-1)
+  const queue: number[] = []
+  for (let cy = 0; cy < cellRes; cy++) {
+    for (let cx = 0; cx < cellRes; cx++) {
+      const idx = cy * cellRes + cx
+      if (!active[idx]) continue
+      const onEdge =
+        cx === 0 || cy === 0 || cx === cellRes - 1 || cy === cellRes - 1 ||
+        !active[idx - 1] || !active[idx + 1] || !active[idx - cellRes] || !active[idx + cellRes]
+      if (onEdge) {
+        dist[idx] = 0
+        queue.push(idx)
+      }
+    }
+  }
+  let head = 0
+  while (head < queue.length) {
+    const idx = queue[head++]
+    const cx = idx % cellRes
+    const d = dist[idx]
+    const candidates = [idx - 1, idx + 1, idx - cellRes, idx + cellRes]
+    for (const n of candidates) {
+      if (n < 0 || n >= active.length) continue
+      const ncx = n % cellRes
+      if (Math.abs(ncx - cx) > 1) continue
+      if (active[n] && dist[n] === -1) {
+        dist[n] = d + 1
+        queue.push(n)
+      }
+    }
+  }
+  return dist
+}
+
+function maskAtRadius(active: Uint8Array, dist: Int32Array, radiusCells: number): Uint8Array {
+  const out = new Uint8Array(active.length)
+  for (let i = 0; i < active.length; i++) {
+    if (active[i] && dist[i] >= radiusCells) out[i] = 1
+  }
+  return out
+}
+
+// Traces closed boundary loops of a binary cell mask (square/marching-squares style),
+// so the outline follows the real (possibly irregular) terrain shape instead of a bbox.
+function traceContours(
+  mask: Uint8Array, cellRes: number,
+  cellSizeX: number, cellSizeY: number, offsetX: number, offsetY: number,
+): Pt[][] {
+  const isActive = (cx: number, cy: number) =>
+    cx >= 0 && cy >= 0 && cx < cellRes && cy < cellRes && mask[cy * cellRes + cx] === 1
+  const corner = (cx: number, cy: number): Pt => ({ x: offsetX + cx * cellSizeX, y: offsetY + cy * cellSizeY })
+  const vkey = (cx: number, cy: number) => `${cx},${cy}`
+
+  const edges = new Map<string, { to: string; pt: Pt }>()
+  for (let cy = 0; cy < cellRes; cy++) {
+    for (let cx = 0; cx < cellRes; cx++) {
+      if (!isActive(cx, cy)) continue
+      if (!isActive(cx, cy - 1)) edges.set(vkey(cx, cy), { to: vkey(cx + 1, cy), pt: corner(cx, cy) })
+      if (!isActive(cx + 1, cy)) edges.set(vkey(cx + 1, cy), { to: vkey(cx + 1, cy + 1), pt: corner(cx + 1, cy) })
+      if (!isActive(cx, cy + 1)) edges.set(vkey(cx + 1, cy + 1), { to: vkey(cx, cy + 1), pt: corner(cx + 1, cy + 1) })
+      if (!isActive(cx - 1, cy)) edges.set(vkey(cx, cy + 1), { to: vkey(cx, cy), pt: corner(cx, cy + 1) })
+    }
+  }
+
+  const visited = new Set<string>()
+  const loops: Pt[][] = []
+  const maxSteps = cellRes * cellRes * 4
+  for (const startKey of edges.keys()) {
+    if (visited.has(startKey)) continue
+    const loop: Pt[] = []
+    let curKey = startKey
+    let steps = 0
+    while (edges.has(curKey) && !visited.has(curKey) && steps < maxSteps) {
+      visited.add(curKey)
+      const e = edges.get(curKey)!
+      loop.push(e.pt)
+      curKey = e.to
+      steps++
+    }
+    if (loop.length >= 3) loops.push(simplifyLoop(loop))
+  }
+  return loops
+}
+
+function simplifyLoop(loop: Pt[]): Pt[] {
+  if (loop.length < 3) return loop
+  const out: Pt[] = []
+  for (let i = 0; i < loop.length; i++) {
+    const prev = loop[(i - 1 + loop.length) % loop.length]
+    const cur = loop[i]
+    const next = loop[(i + 1) % loop.length]
+    const dx1 = cur.x - prev.x, dy1 = cur.y - prev.y
+    const dx2 = next.x - cur.x, dy2 = next.y - cur.y
+    if (Math.abs(dx1 * dy2 - dy1 * dx2) > 1e-6) out.push(cur)
+  }
+  return out.length >= 3 ? out : loop
+}
+
 // ── Extrusion math ───────────────────────────────────────────────────────────
 function extrusionPerMm(nozzleDiameter: number, layerHeight: number): number {
   const lineWidth = nozzleDiameter
@@ -311,90 +413,102 @@ export function generateGcode(geometry: THREE.BufferGeometry, rawSettings: Gcode
       lines.push(`M106 S${fanVal}`)
     }
 
-    // ── Find row spans of active cells ───────────────────────────────────────
-    // For simplicity, find the bounding box of active cells per row and print
-    // perimeters around the full active region, then infill.
+    // ── Contour-following walls + infill ─────────────────────────────────────
+    // The active mask is irregular (it follows the real terrain heightfield),
+    // so walls/infill are traced from the mask itself instead of its bbox.
+    const cellSizeAvg = (cellSizeX + cellSizeY) / 2
+    const dist = computeDistanceField(active, cellRes)
 
-    let minCx = cellRes, maxCx = 0, minCy = cellRes, maxCy = 0
-    for (let cy = 0; cy < cellRes; cy++) {
-      for (let cx = 0; cx < cellRes; cx++) {
-        if (active[cy * cellRes + cx]) {
-          if (cx < minCx) minCx = cx
-          if (cx > maxCx) maxCx = cx
-          if (cy < minCy) minCy = cy
-          if (cy > maxCy) maxCy = cy
-        }
+    // ── Perimeters (walls), each successive wall eroded inward by one line width
+    let innermostRadiusCells = 0
+    for (let w = 0; w < wallCount; w++) {
+      const inset = currentLineWidth * (w + 0.5)
+      const radiusCells = inset / cellSizeAvg
+      const wallMask = maskAtRadius(active, dist, radiusCells)
+      const loops = traceContours(wallMask, cellRes, cellSizeX, cellSizeY, offsetX, offsetY)
+      if (loops.length === 0) break
+      innermostRadiusCells = inset / cellSizeAvg
+
+      lines.push(w === 0 ? '; WALL-OUTER' : '; WALL-INNER')
+      const wallSpeed = w === 0 ? currentSpeed * 0.6 : currentSpeed * 0.85
+      for (const loop of loops) {
+        move(loop[0].x, loop[0].y, z)
+        unretract()
+        for (let i = 1; i < loop.length; i++) extrude(loop[i].x, loop[i].y, wallSpeed, currentERate)
+        extrude(loop[0].x, loop[0].y, wallSpeed, currentERate)
+        retract()
       }
     }
 
-    const regionX0 = offsetX + minCx * cellSizeX
-    const regionY0 = offsetY + minCy * cellSizeY
-    const regionX1 = offsetX + (maxCx + 1) * cellSizeX
-    const regionY1 = offsetY + (maxCy + 1) * cellSizeY
-
-    // ── Perimeters (walls) ───────────────────────────────────────────────────
-    for (let w = 0; w < wallCount; w++) {
-      const inset = currentLineWidth * (w + 0.5)
-      const wx0 = regionX0 + inset
-      const wy0 = regionY0 + inset
-      const wx1 = regionX1 - inset
-      const wy1 = regionY1 - inset
-      if (wx1 <= wx0 || wy1 <= wy0) break
-
-      lines.push(w === 0 ? '; WALL-OUTER' : '; WALL-INNER')
-      move(wx0, wy0, z)
-      unretract()
-      extrude(wx1, wy0, w === 0 ? currentSpeed * 0.6 : currentSpeed * 0.85, currentERate)
-      extrude(wx1, wy1, w === 0 ? currentSpeed * 0.6 : currentSpeed * 0.85, currentERate)
-      extrude(wx0, wy1, w === 0 ? currentSpeed * 0.6 : currentSpeed * 0.85, currentERate)
-      extrude(wx0, wy0, w === 0 ? currentSpeed * 0.6 : currentSpeed * 0.85, currentERate)
-      retract()
-    }
-
-    // ── Infill ───────────────────────────────────────────────────────────────
+    // ── Infill (scanline, clipped to the eroded mask so it follows the terrain edge)
     if (infillPercent > 0) {
-      const wallInset = currentLineWidth * (wallCount + 0.5)
-      const ix0 = regionX0 + wallInset
-      const iy0 = regionY0 + wallInset
-      const ix1 = regionX1 - wallInset
-      const iy1 = regionY1 - wallInset
+      const infillRadiusCells = wallCount > 0
+        ? innermostRadiusCells + currentLineWidth / cellSizeAvg
+        : 0
+      const infillMask = maskAtRadius(active, dist, infillRadiusCells)
+      const spacing = isSolidLayer ? currentLineWidth : infillSpacing
+      lines.push(isSolidLayer ? '; SOLID-FILL' : '; INFILL')
 
-      if (ix1 > ix0 && iy1 > iy0) {
-        const spacing = isSolidLayer ? currentLineWidth : infillSpacing
-        lines.push(isSolidLayer ? '; SOLID-FILL' : '; INFILL')
+      const doX = infillPattern === 'grid' || isSolidLayer || layer % 2 === 0
+      const doY = infillPattern === 'grid' || isSolidLayer || layer % 2 === 1
 
-        // Lines along X (or both for grid / solid)
-        const doX = infillPattern === 'grid' || isSolidLayer || layer % 2 === 0
-        const doY = infillPattern === 'grid' || isSolidLayer || layer % 2 === 1
-
-        if (doX) {
-          let row = 0
-          for (let y = iy0; y <= iy1; y += spacing) {
-            const yc = Math.min(y, iy1)
-            const ltr = row % 2 === 0
-            const sx = ltr ? ix0 : ix1
-            const ex = ltr ? ix1 : ix0
-            move(sx, yc, z)
-            unretract()
-            extrude(ex, yc, currentSpeed, currentERate)
-            retract()
-            row++
+      if (doX) {
+        const rowStep = Math.max(1, Math.round(spacing / cellSizeY))
+        let rowIdx = 0
+        for (let cy = 0; cy < cellRes; cy += rowStep) {
+          const yc = offsetY + (cy + 0.5) * cellSizeY
+          const ltr = rowIdx % 2 === 0
+          const cxRange = ltr
+            ? Array.from({ length: cellRes }, (_, i) => i)
+            : Array.from({ length: cellRes }, (_, i) => cellRes - 1 - i)
+          let spanStart = -1
+          for (const cx of cxRange) {
+            const isOn = infillMask[cy * cellRes + cx] === 1
+            if (isOn && spanStart === -1) spanStart = cx
+            if ((!isOn || cx === cxRange[cxRange.length - 1]) && spanStart !== -1) {
+              const endCx = isOn ? cx : cx + (ltr ? -1 : 1)
+              const x0 = offsetX + (Math.min(spanStart, endCx)) * cellSizeX
+              const x1 = offsetX + (Math.max(spanStart, endCx) + 1) * cellSizeX
+              const sx = ltr ? x0 : x1
+              const ex = ltr ? x1 : x0
+              move(sx, yc, z)
+              unretract()
+              extrude(ex, yc, currentSpeed, currentERate)
+              retract()
+              spanStart = -1
+            }
           }
+          rowIdx++
         }
+      }
 
-        if (doY && infillPattern === 'grid') {
-          let col = 0
-          for (let x = ix0; x <= ix1; x += spacing) {
-            const xc = Math.min(x, ix1)
-            const btt = col % 2 === 0
-            const sy = btt ? iy0 : iy1
-            const ey = btt ? iy1 : iy0
-            move(xc, sy, z)
-            unretract()
-            extrude(xc, ey, currentSpeed, currentERate)
-            retract()
-            col++
+      if (doY && infillPattern === 'grid') {
+        const colStep = Math.max(1, Math.round(spacing / cellSizeX))
+        let colIdx = 0
+        for (let cx = 0; cx < cellRes; cx += colStep) {
+          const xc = offsetX + (cx + 0.5) * cellSizeX
+          const btt = colIdx % 2 === 0
+          const cyRange = btt
+            ? Array.from({ length: cellRes }, (_, i) => i)
+            : Array.from({ length: cellRes }, (_, i) => cellRes - 1 - i)
+          let spanStart = -1
+          for (const cy of cyRange) {
+            const isOn = infillMask[cy * cellRes + cx] === 1
+            if (isOn && spanStart === -1) spanStart = cy
+            if ((!isOn || cy === cyRange[cyRange.length - 1]) && spanStart !== -1) {
+              const endCy = isOn ? cy : cy + (btt ? -1 : 1)
+              const y0 = offsetY + (Math.min(spanStart, endCy)) * cellSizeY
+              const y1 = offsetY + (Math.max(spanStart, endCy) + 1) * cellSizeY
+              const sy = btt ? y0 : y1
+              const ey = btt ? y1 : y0
+              move(xc, sy, z)
+              unretract()
+              extrude(xc, ey, currentSpeed, currentERate)
+              retract()
+              spanStart = -1
+            }
           }
+          colIdx++
         }
       }
     }
