@@ -14,7 +14,7 @@ export default function About() {
         <p>
           A <strong>Digital Elevation Model (DEM)</strong> is a grid of elevation values
           representing the shape of Earth's surface. Each pixel encodes an altitude —
-          brighter = higher. HuaTrienHao 3D reads that grid and builds a 3D mesh you can
+          brighter = higher. TerraSlice 3D reads that grid and builds a 3D mesh you can
           visualise, explore, and 3D-print.
         </p>
       </section>

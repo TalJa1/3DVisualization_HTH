@@ -125,7 +125,7 @@ export function exportSTL(root: THREE.Object3D): void {
   const view = new DataView(buffer)
 
   // Header
-  const header = 'binary STL - HuaTrienHao 3D - Anycubic Kobra X'
+  const header = 'binary STL - TerraSlice 3D - Anycubic Kobra X'
   for (let i = 0; i < 80; i++) {
     view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0)
   }
@@ -161,7 +161,7 @@ export function exportOBJ(root: THREE.Object3D): void {
   const pos  = geo.attributes.position as THREE.BufferAttribute
   const norm = geo.attributes.normal   as THREE.BufferAttribute
   const lines: string[] = [
-    '# terrain.obj - HuaTrienHao 3D',
+    '# terrain.obj - TerraSlice 3D',
     '# Units: mm (scaled to fit Anycubic Kobra X 220x220x250)',
     'g terrain',
   ]

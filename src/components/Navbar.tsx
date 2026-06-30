@@ -14,12 +14,12 @@ export default function Navbar() {
   return (
     <header className="navbar">
       {/* Brand */}
-      <NavLink to="/" className="navbar__brand" aria-label="HuaTrienHao 3D – Home">
+      <NavLink to="/" className="navbar__brand" aria-label="TerraSlice 3D – Home">
         <div className="navbar__logo-ring">
-          <img src={logo} alt="HuaTrienHao 3D logo" className="navbar__logo-img" />
+          <img src={logo} alt="TerraSlice 3D logo" className="navbar__logo-img" />
         </div>
         <span className="navbar__title">
-          HuaTrienHao <span className="navbar__title-accent">3D</span>
+          TerraSlice <span className="navbar__title-accent">3D</span>
         </span>
       </NavLink>
 
